@@ -10,7 +10,8 @@ namespace ArrowMaze.Gameplay
     [RequireComponent(typeof(BoxCollider2D))]
     public sealed class TileController : MonoBehaviour
     {
-        private const float ClearDuration = 0.28f;
+        private const float MinimumClearDuration = 0.30f;
+        private const float MaximumClearDuration = 0.78f;
         private const float WrongTapDuration = 0.20f;
         private const float ColliderInset = 0.95f;
 
@@ -31,7 +32,6 @@ namespace ArrowMaze.Gameplay
         private bool hasCar = true;
         private bool isCleared;
         private float cellSize = 1f;
-        private float exitTravelDistance = 1f;
         private Coroutine wrongTapRoutine;
         private Coroutine hintGlowRoutine;
         private int carColorIndex;
@@ -63,7 +63,6 @@ namespace ArrowMaze.Gameplay
             ArrowDirection direction,
             RoadConnections roadConnections,
             float cellWorldSize,
-            float exitDistance,
             bool hasCar = true,
             int colorIndex = 0)
         {
@@ -71,7 +70,6 @@ namespace ArrowMaze.Gameplay
             Direction = direction;
             this.hasCar = hasCar;
             this.carColorIndex = colorIndex;
-            exitTravelDistance = Mathf.Max(cellWorldSize, exitDistance);
             gameObject.name = $"Tile ({coordinate.Row}, {coordinate.Column})";
 
             EnsureVisualLayers();
@@ -221,17 +219,24 @@ namespace ArrowMaze.Gameplay
         private IEnumerator ClearDriveRoutine()
         {
             var elapsed = 0f;
-            var driveVector = VectorFor(Direction) * exitTravelDistance;
             var initialPos = carTransform.localPosition;
-            var targetPos = initialPos + (Vector3)driveVector;
+            var driveDirection = VectorFor(Direction);
+            var travelDistance = CalculateOffscreenTravelDistance(driveDirection);
+            var targetPos = initialPos + ((Vector3)driveDirection * travelDistance);
+            var duration = Mathf.Clamp(travelDistance / 11f, MinimumClearDuration, MaximumClearDuration);
+            var initialScale = carTransform.localScale;
 
-            while (elapsed < ClearDuration)
+            while (elapsed < duration)
             {
                 elapsed += Time.deltaTime;
-                var progress = Mathf.Clamp01(elapsed / ClearDuration);
+                var progress = Mathf.Clamp01(elapsed / duration);
+                // An ease-in makes the departure feel like a vehicle accelerating,
+                // while retaining a deterministic final position outside the camera.
                 var smoothProgress = Mathf.SmoothStep(0f, 1f, progress);
 
                 carTransform.localPosition = Vector3.Lerp(initialPos, targetPos, smoothProgress);
+                var launchPulse = 1f + (Mathf.Sin(Mathf.Min(progress, 0.28f) / 0.28f * Mathf.PI) * 0.06f);
+                carTransform.localScale = initialScale * launchPulse;
                 var carAlpha = progress < 0.72f ? 1f : Mathf.Clamp01(1f - ((progress - 0.72f) / 0.28f));
                 carRenderer.color = new Color(1f, 1f, 1f, carAlpha);
 
@@ -240,6 +245,7 @@ namespace ArrowMaze.Gameplay
 
             carRenderer.enabled = false;
             carTransform.localPosition = Vector3.zero;
+            carTransform.localScale = initialScale;
         }
 
         public void PlayWrongTapFeedback()
@@ -420,6 +426,42 @@ namespace ArrowMaze.Gameplay
 
             var sourceWorldSize = Mathf.Max(sprite.rect.width, sprite.rect.height) / sprite.pixelsPerUnit;
             return sourceWorldSize > 0.0001f ? targetWorldSize / sourceWorldSize : targetWorldSize;
+        }
+
+        private float CalculateOffscreenTravelDistance(Vector2 direction)
+        {
+            var gameplayCamera = Camera.main;
+            if (gameplayCamera == null || carRenderer == null)
+            {
+                return cellSize * 2f;
+            }
+
+            var planeDistance = Mathf.Abs(carTransform.position.z - gameplayCamera.transform.position.z);
+            var viewportCenter = new Vector3(0.5f, 0.5f, planeDistance);
+            var current = carTransform.position;
+            var extents = carRenderer.bounds.extents;
+            const float viewportPadding = 0.04f;
+
+            if (direction.x > 0f)
+            {
+                var edge = gameplayCamera.ViewportToWorldPoint(viewportCenter + new Vector3(0.5f + viewportPadding, 0f, 0f)).x;
+                return Mathf.Max(cellSize, edge - current.x + extents.x);
+            }
+
+            if (direction.x < 0f)
+            {
+                var edge = gameplayCamera.ViewportToWorldPoint(viewportCenter - new Vector3(0.5f + viewportPadding, 0f, 0f)).x;
+                return Mathf.Max(cellSize, current.x - edge + extents.x);
+            }
+
+            if (direction.y > 0f)
+            {
+                var edge = gameplayCamera.ViewportToWorldPoint(viewportCenter + new Vector3(0f, 0.5f + viewportPadding, 0f)).y;
+                return Mathf.Max(cellSize, edge - current.y + extents.y);
+            }
+
+            var bottom = gameplayCamera.ViewportToWorldPoint(viewportCenter - new Vector3(0f, 0.5f + viewportPadding, 0f)).y;
+            return Mathf.Max(cellSize, current.y - bottom + extents.y);
         }
     }
 }
