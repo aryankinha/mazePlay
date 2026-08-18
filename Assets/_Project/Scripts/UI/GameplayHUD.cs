@@ -47,6 +47,11 @@ namespace ArrowMaze.UI
         private int displayedLives = -1;
         private int remainingHints = 2;
 
+        private void Awake()
+        {
+            AutoWireSceneElements();
+        }
+
         public void Bind(
             LivesManager livesMgr,
             PathValidator validator,
@@ -144,6 +149,30 @@ namespace ArrowMaze.UI
         private void OnDestroy()
         {
             Unbind();
+        }
+
+        private void AutoWireSceneElements()
+        {
+            titleText = titleText != null ? titleText : FindChild<TMP_Text>("Title");
+            levelText = levelText != null ? levelText : FindChild<TMP_Text>("Level Text");
+            carsRemainingText = carsRemainingText != null ? carsRemainingText : FindChild<TMP_Text>("Cars Remaining");
+            difficultyText = difficultyText != null ? difficultyText : FindChild<TMP_Text>("Difficulty Badge");
+            hintCountText = hintCountText != null ? hintCountText : FindChild<TMP_Text>("Hint Count");
+            hintButton = hintButton != null ? hintButton : FindChild<Button>("Hint Button");
+            undoButton = undoButton != null ? undoButton : FindChild<Button>("Undo Button");
+        }
+
+        private T FindChild<T>(string objectName) where T : Component
+        {
+            foreach (var component in GetComponentsInChildren<T>(true))
+            {
+                if (component.name == objectName)
+                {
+                    return component;
+                }
+            }
+
+            return null;
         }
 
         private void RestartPressed()

@@ -76,6 +76,7 @@ namespace ArrowMaze.Core
                         level.GetDirection(coordinate),
                         roadTopology.GetConnections(coordinate),
                         cellSize,
+                        CalculateExitTravelDistance(level, coordinate),
                         hasCar,
                         colorIndex);
                     tile.TapRequested += HandleTileTapped;
@@ -208,6 +209,22 @@ namespace ArrowMaze.Core
             var x = (coordinate.Column - ((level.Columns - 1) * 0.5f)) * pitch;
             var y = (((level.Rows - 1) * 0.5f) - coordinate.Row) * pitch;
             return new Vector3(x, y, 0f);
+        }
+
+        private float CalculateExitTravelDistance(MazeLevel level, GridCoordinate coordinate)
+        {
+            var steps = 0;
+            var current = coordinate;
+            var direction = level.GetDirection(coordinate);
+            do
+            {
+                steps++;
+                current = StraightLineLegality.Move(current, direction);
+            }
+            while (level.IsInBounds(current));
+
+            // Continue past the gate so the car is fully outside the board before hiding.
+            return cellSize * (steps + 0.60f);
         }
 
         private void EnsureTileContainer()

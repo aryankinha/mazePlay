@@ -31,6 +31,7 @@ namespace ArrowMaze.Gameplay
         private bool hasCar = true;
         private bool isCleared;
         private float cellSize = 1f;
+        private float exitTravelDistance = 1f;
         private Coroutine wrongTapRoutine;
         private Coroutine hintGlowRoutine;
         private int carColorIndex;
@@ -62,6 +63,7 @@ namespace ArrowMaze.Gameplay
             ArrowDirection direction,
             RoadConnections roadConnections,
             float cellWorldSize,
+            float exitDistance,
             bool hasCar = true,
             int colorIndex = 0)
         {
@@ -69,6 +71,7 @@ namespace ArrowMaze.Gameplay
             Direction = direction;
             this.hasCar = hasCar;
             this.carColorIndex = colorIndex;
+            exitTravelDistance = Mathf.Max(cellWorldSize, exitDistance);
             gameObject.name = $"Tile ({coordinate.Row}, {coordinate.Column})";
 
             EnsureVisualLayers();
@@ -218,7 +221,7 @@ namespace ArrowMaze.Gameplay
         private IEnumerator ClearDriveRoutine()
         {
             var elapsed = 0f;
-            var driveVector = VectorFor(Direction) * (cellSize * 1.8f);
+            var driveVector = VectorFor(Direction) * exitTravelDistance;
             var initialPos = carTransform.localPosition;
             var targetPos = initialPos + (Vector3)driveVector;
 
@@ -229,7 +232,7 @@ namespace ArrowMaze.Gameplay
                 var smoothProgress = Mathf.SmoothStep(0f, 1f, progress);
 
                 carTransform.localPosition = Vector3.Lerp(initialPos, targetPos, smoothProgress);
-                var carAlpha = Mathf.Clamp01(1f - (progress * 1.3f));
+                var carAlpha = progress < 0.72f ? 1f : Mathf.Clamp01(1f - ((progress - 0.72f) / 0.28f));
                 carRenderer.color = new Color(1f, 1f, 1f, carAlpha);
 
                 yield return null;
