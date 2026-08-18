@@ -176,6 +176,11 @@ namespace ArrowMaze.Core
                 for (var column = 0; column < level.Columns; column++)
                 {
                     var coord = new GridCoordinate(row, column);
+                    if (!level.HasCar(coord))
+                    {
+                        continue;
+                    }
+
                     var dir = level.GetDirection(coord);
                     var isExit = false;
                     var rotZ = 0f;
@@ -212,11 +217,10 @@ namespace ArrowMaze.Core
                         gateObj.transform.SetParent(gateContainer.transform, false);
                         gateObj.transform.localPosition = GetLocalPosition(coord, level) + offset;
                         gateObj.transform.localRotation = Quaternion.Euler(0f, 0f, rotZ);
-                        gateObj.transform.localScale = Vector3.one * (cellSize * 0.42f);
-
                         var sr = gateObj.AddComponent<SpriteRenderer>();
                         sr.sprite = gateSprite;
                         sr.sortingOrder = 6;
+                        gateObj.transform.localScale = Vector3.one * ScaleSpriteToWorldSize(gateSprite, cellSize * 0.42f);
                     }
                 }
             }
@@ -362,6 +366,17 @@ namespace ArrowMaze.Core
             }
 
             tileContainer.position = new Vector3(safeCenterX, verticalCenter, 0f);
+        }
+
+        private static float ScaleSpriteToWorldSize(Sprite sprite, float targetWorldSize)
+        {
+            if (sprite == null)
+            {
+                return targetWorldSize;
+            }
+
+            var sourceWorldSize = Mathf.Max(sprite.rect.width, sprite.rect.height) / sprite.pixelsPerUnit;
+            return sourceWorldSize > 0.0001f ? targetWorldSize / sourceWorldSize : targetWorldSize;
         }
     }
 }

@@ -29,7 +29,6 @@ namespace ArrowMaze.Gameplay
         private static Sprite selectionGlowSprite;
         private static Sprite heartFullSprite;
         private static Sprite heartEmptySprite;
-        private static Sprite fallbackArrowSprite;
 
         public static Sprite GetCarSprite(int colorIndex)
         {
@@ -46,7 +45,7 @@ namespace ArrowMaze.Gameplay
                 return loaded;
             }
 
-            return GetFallbackArrowSprite();
+            return null;
         }
 
         public static Sprite GetRoadSprite(ArrowDirection direction)
@@ -126,33 +125,6 @@ namespace ArrowMaze.Gameplay
             return sprite;
         }
 
-        public static Sprite GetFallbackArrowSprite()
-        {
-            if (fallbackArrowSprite == null)
-            {
-                fallbackArrowSprite = BuildProceduralTrailSprite("RuntimeFallbackArrow", ArrowDistance);
-            }
-
-            return fallbackArrowSprite;
-        }
-
-        private static float ArrowDistance(Vector2 point)
-        {
-            var shaft = ShaftDistance(point);
-            var head = SdTriangle(
-                point,
-                new Vector2(0f, 0.5f),
-                new Vector2(-0.31f, 0.18f),
-                new Vector2(0.31f, 0.18f)) - 0.02f;
-            return Mathf.Min(shaft, head);
-        }
-
-        private static float ShaftDistance(Vector2 point)
-        {
-            return SdBox(point - new Vector2(0f, (-0.5f + 0.42f) * 0.5f),
-                         new Vector2(StrokeHalfWidth, (0.42f - (-0.5f)) * 0.5f)) - 0.02f;
-        }
-
         private static float TrailDistance(Vector2 point, TrailConnections connections)
         {
             var distance = point.magnitude - TrailHalfWidth;
@@ -170,27 +142,6 @@ namespace ArrowMaze.Gameplay
             if (along < 0f) return perp - TrailHalfWidth;
             var box = new Vector2(perp - TrailHalfWidth, along - 0.515f);
             return Mathf.Max(box.x, box.y);
-        }
-
-        private static float SdBox(Vector2 point, Vector2 extents)
-        {
-            var d = new Vector2(Mathf.Abs(point.x) - extents.x, Mathf.Abs(point.y) - extents.y);
-            return Mathf.Max(d.x, d.y);
-        }
-
-        private static float SdTriangle(Vector2 p, Vector2 p0, Vector2 p1, Vector2 p2)
-        {
-            var e0 = p1 - p0; var e1 = p2 - p1; var e2 = p0 - p2;
-            var v0 = p - p0; var v1 = p - p1; var v2 = p - p2;
-            var pq0 = v0 - e0 * Mathf.Clamp01(Vector2.Dot(v0, e0) / Vector2.Dot(e0, e0));
-            var pq1 = v1 - e1 * Mathf.Clamp01(Vector2.Dot(v1, e1) / Vector2.Dot(e1, e1));
-            var pq2 = v2 - e2 * Mathf.Clamp01(Vector2.Dot(v2, e2) / Vector2.Dot(e2, e2));
-            var s = Mathf.Sign(e0.x * e2.y - e0.y * e2.x);
-            var d = Mathf.Min(Mathf.Min(
-                Vector2.Dot(pq0, pq0),
-                Vector2.Dot(pq1, pq1)),
-                Vector2.Dot(pq2, pq2));
-            return -Mathf.Sqrt(d) * s;
         }
 
         private static Sprite BuildProceduralTrailSprite(string spriteName, Func<Vector2, float> distanceFunction)

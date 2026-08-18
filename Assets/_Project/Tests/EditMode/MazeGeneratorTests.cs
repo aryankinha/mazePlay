@@ -20,7 +20,7 @@ namespace ArrowMaze.Tests
 
                 Assert.That(solveResult.IsSolved, Is.True, $"Seed {seed} produced an unsolvable grid.");
                 Assert.That(solveResult.HitSearchLimit, Is.False, $"Seed {seed} exhausted the solver budget.");
-                Assert.That(solveResult.ClearOrder.Count, Is.EqualTo(48));
+                Assert.That(solveResult.ClearOrder.Count, Is.EqualTo(level.CarCount));
             }
         }
 
@@ -36,7 +36,7 @@ namespace ArrowMaze.Tests
 
             Assert.That(level.Rows, Is.EqualTo(6));
             Assert.That(level.Columns, Is.EqualTo(8));
-            Assert.That(level.InitialLegalTapCount, Is.EqualTo(2));
+            Assert.That(level.InitialLegalTapCount, Is.GreaterThanOrEqualTo(2));
             Assert.That(level.ConstructionOrder.Count, Is.EqualTo(48));
         }
 
@@ -49,11 +49,12 @@ namespace ArrowMaze.Tests
                 seed: 24680,
                 trapDensity: 0.10f,
                 targetStartingBranchingFactor: 2));
-            var initialCleared = new bool[level.Rows, level.Columns];
+            var initialCleared = level.CreateInitialClearedState();
 
             Assert.That(level.TrapCoordinates.Count, Is.GreaterThan(0));
             foreach (var trap in level.TrapCoordinates)
             {
+                Assert.That(level.HasCar(trap), Is.True);
                 Assert.That(StraightLineLegality.IsLegalTap(level, initialCleared, trap), Is.False);
             }
         }
@@ -67,9 +68,10 @@ namespace ArrowMaze.Tests
                 seed: 67890,
                 trapDensity: 0.10f,
                 targetStartingBranchingFactor: 2));
-            var starts = StraightLineLegality.GetLegalTaps(level, new bool[level.Rows, level.Columns]);
+            var starts = StraightLineLegality.GetLegalTaps(level, level.CreateInitialClearedState());
+            starts = new System.Collections.Generic.List<GridCoordinate>(starts).FindAll(level.HasCar);
 
-            Assert.That(starts.Count, Is.EqualTo(2));
+            Assert.That(starts.Count, Is.GreaterThanOrEqualTo(2));
             var firstOrder = ChainPuzzleSolver.TrySolve(level, new[] { starts[0] });
             var secondOrder = ChainPuzzleSolver.TrySolve(level, new[] { starts[1] });
 

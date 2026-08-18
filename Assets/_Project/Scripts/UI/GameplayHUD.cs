@@ -62,6 +62,7 @@ namespace ArrowMaze.UI
             restartAction = onRestart;
             undoAction = onUndo;
             hintAction = onHint;
+            remainingHints = 2;
 
             if (titleText != null)
             {
@@ -88,8 +89,8 @@ namespace ArrowMaze.UI
 
             if (pathValidator != null)
             {
-                pathValidator.OnCorrectTap += _ => UpdateCarsCount();
-                pathValidator.OnUndo += _ => UpdateCarsCount();
+                pathValidator.OnCorrectTap += HandleCarCountChanged;
+                pathValidator.OnUndo += HandleCarCountChanged;
                 UpdateCarsCount();
             }
 
@@ -123,6 +124,11 @@ namespace ArrowMaze.UI
             {
                 carsRemainingText.text = $"{pathValidator.RemainingCars}";
             }
+        }
+
+        private void HandleCarCountChanged(GridCoordinate _)
+        {
+            UpdateCarsCount();
         }
 
         public void ShowLevelComplete()
@@ -330,6 +336,13 @@ namespace ArrowMaze.UI
             {
                 livesManager.OnLivesChanged -= UpdateLives;
                 livesManager = null;
+            }
+
+            if (pathValidator != null)
+            {
+                pathValidator.OnCorrectTap -= HandleCarCountChanged;
+                pathValidator.OnUndo -= HandleCarCountChanged;
+                pathValidator = null;
             }
 
             if (restartButton != null)

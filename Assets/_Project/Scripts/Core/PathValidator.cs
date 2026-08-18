@@ -17,27 +17,8 @@ namespace ArrowMaze.Core
         public PathValidator(MazeLevel level)
         {
             this.level = level ?? throw new ArgumentNullException(nameof(level));
-            cleared = new bool[level.Rows, level.Columns];
-
-            var carCount = 0;
-            for (var row = 0; row < level.Rows; row++)
-            {
-                for (var col = 0; col < level.Columns; col++)
-                {
-                    var coord = new GridCoordinate(row, col);
-                    if (!level.HasCar(coord))
-                    {
-                        // Open road segments start cleared so cars can drive through them
-                        cleared[row, col] = true;
-                    }
-                    else
-                    {
-                        carCount++;
-                    }
-                }
-            }
-
-            totalCars = carCount > 0 ? carCount : (level.Rows * level.Columns);
+            cleared = level.CreateInitialClearedState();
+            totalCars = level.CarCount;
         }
 
         public event Action<GridCoordinate> OnCorrectTap;

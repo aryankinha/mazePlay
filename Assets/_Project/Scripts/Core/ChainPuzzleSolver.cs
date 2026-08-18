@@ -45,8 +45,8 @@ namespace ArrowMaze.Core
                 throw new ArgumentOutOfRangeException(nameof(maxStates));
             }
 
-            var cleared = new bool[level.Rows, level.Columns];
-            var clearOrder = new List<GridCoordinate>(level.Rows * level.Columns);
+            var cleared = level.CreateInitialClearedState();
+            var clearOrder = new List<GridCoordinate>(level.CarCount);
             if (requiredPrefix == null || !MazeGenerator.IsLegalTapSequence(level, requiredPrefix))
             {
                 return new ChainPuzzleSolveResult(false, clearOrder.AsReadOnly(), 0, false);
@@ -84,7 +84,7 @@ namespace ArrowMaze.Core
             ref int statesExplored,
             ref bool hitSearchLimit)
         {
-            if (clearedCount == level.Rows * level.Columns)
+            if (clearedCount == level.CarCount)
             {
                 return true;
             }

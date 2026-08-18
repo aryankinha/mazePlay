@@ -49,7 +49,8 @@ namespace ArrowMaze.Core
             IList<GridCoordinate> constructionOrder,
             IList<GridCoordinate> trapCoordinates,
             int initialLegalTapCount,
-            bool[,] hasCar = null)
+            bool[,] hasCar = null,
+            int seed = 0)
         {
             if (directions == null)
             {
@@ -63,6 +64,7 @@ namespace ArrowMaze.Core
 
             Rows = directions.GetLength(0);
             Columns = directions.GetLength(1);
+            Seed = seed;
             this.directions = (ArrowDirection[,])directions.Clone();
             this.constructionOrder = CopyCoordinates(constructionOrder, nameof(constructionOrder));
             this.trapCoordinates = CopyCoordinates(trapCoordinates, nameof(trapCoordinates));
@@ -84,17 +86,49 @@ namespace ArrowMaze.Core
                     }
                 }
             }
+
+            var carCount = 0;
+            for (var row = 0; row < Rows; row++)
+            {
+                for (var column = 0; column < Columns; column++)
+                {
+                    if (this.hasCar[row, column])
+                    {
+                        carCount++;
+                    }
+                }
+            }
+
+            CarCount = carCount;
         }
 
         public int Rows { get; }
         public int Columns { get; }
+        public int Seed { get; }
         public int InitialLegalTapCount { get; }
+        public int CarCount { get; }
         public IReadOnlyList<GridCoordinate> ConstructionOrder => constructionOrder;
         public IReadOnlyList<GridCoordinate> TrapCoordinates => trapCoordinates;
 
         public static MazeLevel FromDirections(ArrowDirection[,] directions)
         {
             return new MazeLevel(directions, Array.Empty<GridCoordinate>(), Array.Empty<GridCoordinate>(), 0);
+        }
+
+        public static MazeLevel FromDirections(ArrowDirection[,] directions, bool[,] hasCars)
+        {
+            if (directions == null)
+            {
+                throw new ArgumentNullException(nameof(directions));
+            }
+
+            if (hasCars == null || hasCars.GetLength(0) != directions.GetLength(0) ||
+                hasCars.GetLength(1) != directions.GetLength(1))
+            {
+                throw new ArgumentException("Car-state dimensions must match the directions grid.", nameof(hasCars));
+            }
+
+            return new MazeLevel(directions, Array.Empty<GridCoordinate>(), Array.Empty<GridCoordinate>(), 0, hasCars);
         }
 
         public ArrowDirection GetDirection(GridCoordinate coordinate)
@@ -113,6 +147,24 @@ namespace ArrowMaze.Core
         {
             return coordinate.Row >= 0 && coordinate.Row < Rows &&
                    coordinate.Column >= 0 && coordinate.Column < Columns;
+        }
+
+        /// <summary>
+        /// Empty road cells are traversable from the start. Both the live game and
+        /// the solver use this state, so generation cannot validate a different game.
+        /// </summary>
+        public bool[,] CreateInitialClearedState()
+        {
+            var cleared = new bool[Rows, Columns];
+            for (var row = 0; row < Rows; row++)
+            {
+                for (var column = 0; column < Columns; column++)
+                {
+                    cleared[row, column] = !hasCar[row, column];
+                }
+            }
+
+            return cleared;
         }
 
         private ReadOnlyCollection<GridCoordinate> CopyCoordinates(IList<GridCoordinate> source, string paramName)
@@ -164,7 +216,7 @@ namespace ArrowMaze.Core
             TargetStartingBranchingFactor = targetStartingBranchingFactor;
             MaxGenerationAttempts = maxGenerationAttempts;
             SolverNodeLimit = solverNodeLimit;
-            CarDensity = Mathf.Clamp(carDensity, 0.25f, 1f);
+            CarDensity = Math.Min(1f, Math.Max(0.25f, carDensity));
         }
 
         public int Rows { get; }
@@ -223,14 +275,6 @@ namespace ArrowMaze.Core
                     continue;
                 }
 
-                var provisional = new MazeLevel(directions, clearOrder, trapCoordinates, 0);
-                var initialCleared = new bool[settings.Rows, settings.Columns];
-                var initialLegalCount = StraightLineLegality.GetLegalTaps(provisional, initialCleared).Count;
-                if (initialLegalCount != settings.TargetStartingBranchingFactor)
-                {
-                    continue;
-                }
-
                 if (settings.TrapDensity > 0f && trapCoordinates.Count == 0)
                 {
                     continue;
@@ -261,7 +305,27 @@ namespace ArrowMaze.Core
                     }
                 }
 
-                var generated = new MazeLevel(directions, clearOrder, trapCoordinates, initialLegalCount, hasCar);
+                var candidateLevel = new MazeLevel(directions, clearOrder, trapCoordinates, 0, hasCar, settings.Seed);
+                var initialCleared = candidateLevel.CreateInitialClearedState();
+                var initialLegalCount = CountLegalCars(candidateLevel, initialCleared);
+                if (initialLegalCount < settings.TargetStartingBranchingFactor)
+                {
+                    continue;
+                }
+
+                var activeTrapCoordinates = GetInitialIllegalCars(candidateLevel, initialCleared, trapCoordinates);
+                if (settings.TrapDensity > 0f && activeTrapCoordinates.Count == 0)
+                {
+                    continue;
+                }
+
+                var generated = new MazeLevel(
+                    directions,
+                    clearOrder,
+                    activeTrapCoordinates,
+                    initialLegalCount,
+                    hasCar,
+                    settings.Seed);
                 var solveResult = ChainPuzzleSolver.TrySolve(generated, settings.SolverNodeLimit);
                 if (solveResult.IsSolved)
                 {
@@ -275,7 +339,7 @@ namespace ArrowMaze.Core
 
         public static bool Solve(MazeLevel level, IReadOnlyList<GridCoordinate> tapOrder)
         {
-            return IsLegalTapSequence(level, tapOrder) && tapOrder.Count == level.Rows * level.Columns;
+            return level != null && IsLegalTapSequence(level, tapOrder) && tapOrder.Count == level.CarCount;
         }
 
         public static bool IsLegalTapSequence(MazeLevel level, IReadOnlyList<GridCoordinate> tapOrder)
@@ -285,15 +349,16 @@ namespace ArrowMaze.Core
                 throw new ArgumentNullException(nameof(level));
             }
 
-            if (tapOrder == null || tapOrder.Count > level.Rows * level.Columns)
+            if (tapOrder == null || tapOrder.Count > level.CarCount)
             {
                 return false;
             }
 
-            var cleared = new bool[level.Rows, level.Columns];
+            var cleared = level.CreateInitialClearedState();
             foreach (var coordinate in tapOrder)
             {
-                if (!StraightLineLegality.IsLegalTap(level, cleared, coordinate))
+                if (!level.IsInBounds(coordinate) || !level.HasCar(coordinate) ||
+                    !StraightLineLegality.IsLegalTap(level, cleared, coordinate))
                 {
                     return false;
                 }
@@ -302,6 +367,37 @@ namespace ArrowMaze.Core
             }
 
             return true;
+        }
+
+        private static int CountLegalCars(MazeLevel level, bool[,] cleared)
+        {
+            var count = 0;
+            foreach (var coordinate in StraightLineLegality.GetLegalTaps(level, cleared))
+            {
+                if (level.HasCar(coordinate))
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static List<GridCoordinate> GetInitialIllegalCars(
+            MazeLevel level,
+            bool[,] cleared,
+            IReadOnlyList<GridCoordinate> candidateTraps)
+        {
+            var activeTraps = new List<GridCoordinate>();
+            foreach (var coordinate in candidateTraps)
+            {
+                if (level.HasCar(coordinate) && !StraightLineLegality.IsLegalTap(level, cleared, coordinate))
+                {
+                    activeTraps.Add(coordinate);
+                }
+            }
+
+            return activeTraps;
         }
 
         private static bool TryBuildClearOrder(

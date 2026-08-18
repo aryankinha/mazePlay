@@ -92,19 +92,21 @@ namespace ArrowMaze.Gameplay
             roadRenderer.sprite = TileVisualFactory.GetRoadSprite(direction);
             roadRenderer.color = Color.white;
             roadRenderer.enabled = true;
+            roadTransform.localScale = Vector3.one * ScaleSpriteToWorldSize(roadRenderer.sprite, cellSize);
 
             // Car visual
             carRenderer.sprite = TileVisualFactory.GetCarSprite(carColorIndex);
             carRenderer.color = Color.white;
             carRenderer.enabled = hasCar;
             carTransform.localPosition = Vector3.zero;
-            carTransform.localScale = Vector3.one * (cellSize * 0.72f);
+            carTransform.localScale = Vector3.one * ScaleSpriteToWorldSize(carRenderer.sprite, cellSize * 0.72f);
 
             // Glow / Hint visual
             if (glowRenderer != null)
             {
                 glowRenderer.sprite = TileVisualFactory.GetSelectionGlowSprite();
                 glowRenderer.enabled = false;
+                glowTransform.localScale = Vector3.one * ScaleSpriteToWorldSize(glowRenderer.sprite, cellSize * 1.1f);
             }
 
             // Trail visual
@@ -370,9 +372,6 @@ namespace ArrowMaze.Gameplay
                 carRenderer = EnsureChildRenderer("Car", 3, out carTransform);
             }
 
-            RemoveLegacyLayer("Arrow");
-            RemoveLegacyLayer("Border");
-            RemoveLegacyLayer("Backing");
         }
 
         private SpriteRenderer EnsureChildRenderer(string layerName, int sortingOrder, out Transform layerTransform)
@@ -394,15 +393,6 @@ namespace ArrowMaze.Gameplay
 
             renderer.sortingOrder = sortingOrder;
             return renderer;
-        }
-
-        private void RemoveLegacyLayer(string layerName)
-        {
-            var legacy = transform.Find(layerName);
-            if (legacy != null)
-            {
-                Destroy(legacy.gameObject);
-            }
         }
 
         private static bool TryGetPressedScreenPosition(out Vector2 screenPosition)
@@ -447,6 +437,17 @@ namespace ArrowMaze.Gameplay
                 case ArrowDirection.Left: return Vector2.left;
                 default: return Vector2.zero;
             }
+        }
+
+        private static float ScaleSpriteToWorldSize(Sprite sprite, float targetWorldSize)
+        {
+            if (sprite == null)
+            {
+                return targetWorldSize;
+            }
+
+            var sourceWorldSize = Mathf.Max(sprite.rect.width, sprite.rect.height) / sprite.pixelsPerUnit;
+            return sourceWorldSize > 0.0001f ? targetWorldSize / sourceWorldSize : targetWorldSize;
         }
     }
 }

@@ -55,5 +55,30 @@ namespace ArrowMaze.Tests
             Assert.That(completed, Is.True);
             Assert.That(validator.ClearedCount, Is.EqualTo(4));
         }
+
+        [Test]
+        public void EmptyRoads_DoNotBlockCarsAndSolverUsesTheSameBoardState()
+        {
+            var level = MazeLevel.FromDirections(
+                new[,]
+                {
+                    { ArrowDirection.Right, ArrowDirection.Right, ArrowDirection.Right },
+                    { ArrowDirection.Up, ArrowDirection.Up, ArrowDirection.Up }
+                },
+                new[,]
+                {
+                    { true, false, false },
+                    { false, false, true }
+                });
+            var validator = new PathValidator(level);
+
+            Assert.That(level.CarCount, Is.EqualTo(2));
+            Assert.That(validator.IsLegalTap(new GridCoordinate(0, 0)), Is.True,
+                "The empty middle road must be passable to the left car.");
+
+            var solve = ChainPuzzleSolver.TrySolve(level);
+            Assert.That(solve.IsSolved, Is.True);
+            Assert.That(solve.ClearOrder.Count, Is.EqualTo(2));
+        }
     }
 }
