@@ -1,25 +1,24 @@
 using System;
 using ArrowMaze.Core;
+using ArrowMaze.Data;
+using ArrowMaze.Meta;
 using ArrowMaze.UI;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace ArrowMaze.Gameplay
 {
     public sealed class LevelController : MonoBehaviour
     {
-        private const int FixedRows = 6;
-        private const int FixedColumns = 8;
-        private const int FixedSeed = 260816;
-
         [SerializeField] private GridManager gridManager;
         [SerializeField] private LivesManager livesManager;
         [SerializeField] private GameplayHUD gameplayHud;
-        [SerializeField, Range(0f, 1f)] private float trapDensity = 0.15f;
-        [SerializeField, Min(1)] private int targetStartingBranchingFactor = 2;
-        [SerializeField, Range(0.25f, 1f)] private float carDensity = 0.45f;
-        [SerializeField] private int currentLevelNumber = 23;
+        [SerializeField] private bool useInspectorLevelForDevelopment;
+        [SerializeField, Min(1)] private int inspectorLevelNumber = 23;
 
         private PathValidator pathValidator;
+        private LevelDefinition currentDefinition;
+        private int wrongTaps;
         private bool levelFinished;
 
         public event Action OnLevelStart;
@@ -53,6 +52,18 @@ namespace ArrowMaze.Gameplay
             StartLevel();
         }
 
+        public void ReturnToLevelMap()
+        {
+            SceneManager.LoadScene("LevelMap");
+        }
+
+        public void PlayNextLevel()
+        {
+            var next = Mathf.Min(currentDefinition.Id + 1, LevelCatalog.HighestCatalogLevel);
+            LevelSession.SelectedLevel = next;
+            SceneManager.LoadScene("Gameplay");
+        }
+
         public void HandleUndo()
         {
             if (levelFinished || pathValidator == null)
@@ -84,16 +95,11 @@ namespace ArrowMaze.Gameplay
         {
             UnwireSystems();
             levelFinished = false;
+            wrongTaps = 0;
 
-            var settings = new MazeGenerationSettings(
-                FixedRows,
-                FixedColumns,
-                FixedSeed,
-                trapDensity,
-                targetStartingBranchingFactor,
-                carDensity: carDensity);
-
-            var level = MazeGenerator.Generate(settings);
+            var selectedLevel = useInspectorLevelForDevelopment ? inspectorLevelNumber : LevelSession.SelectedLevel;
+            currentDefinition = LevelCatalog.Get(selectedLevel);
+            var level = currentDefinition.BuildLevel();
             pathValidator = new PathValidator(level);
 
             gridManager.TileTapped += RegisterTap;
@@ -103,11 +109,12 @@ namespace ArrowMaze.Gameplay
             livesManager.OnGameOver += HandleLevelLose;
 
             livesManager.ResetLives();
-            gameplayHud?.Bind(livesManager, pathValidator, RestartLevel, HandleUndo, HandleHint, currentLevelNumber);
+            gameplayHud?.Bind(livesManager, pathValidator, RestartLevel, HandleUndo, HandleHint, currentDefinition.Id, currentDefinition.Difficulty, PlayNextLevel, ReturnToLevelMap);
             gridManager.BuildLevel(level);
             gridManager.SetInputEnabled(true);
 
-            Debug.Log($"Tap Away Cars started: {FixedRows}x{FixedColumns}, seed {FixedSeed}, cars {pathValidator.TotalCars}.");
+            PlayerProgress.SetLastPlayed(currentDefinition.Id);
+            Debug.Log($"Tap Away Cars started: Level {currentDefinition.Id}, {level.Rows}x{level.Columns}, seed {currentDefinition.Seed}, cars {pathValidator.TotalCars}.");
             OnLevelStart?.Invoke();
         }
 
@@ -123,6 +130,7 @@ namespace ArrowMaze.Gameplay
 
         private void HandleIncorrectTap(GridCoordinate coordinate)
         {
+            wrongTaps++;
             gridManager.PlayWrongTapFeedback(coordinate);
             livesManager.LoseLife();
         }
@@ -136,7 +144,9 @@ namespace ArrowMaze.Gameplay
 
             levelFinished = true;
             gridManager.SetInputEnabled(false);
-            gameplayHud?.ShowLevelComplete();
+            var stars = wrongTaps == 0 ? 3 : wrongTaps <= 2 ? 2 : 1;
+            PlayerProgress.CompleteLevel(currentDefinition.Id, stars);
+            gameplayHud?.ShowLevelComplete(stars, currentDefinition.Id < LevelCatalog.HighestCatalogLevel);
             Debug.Log("Tap Away Cars level complete!");
             OnLevelWin?.Invoke();
         }

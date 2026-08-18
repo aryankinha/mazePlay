@@ -265,6 +265,17 @@ namespace ArrowMaze.Gameplay
             wrongTapRoutine = StartCoroutine(WrongTapRoutine());
         }
 
+        /// <summary>Routes programmatic UI/accessibility taps through the same hit-test as touch and mouse input.</summary>
+        public bool TryTapAtScreenPosition(Vector2 screenPosition)
+        {
+            if (!acceptsInput || !hasCar || isCleared)
+            {
+                return false;
+            }
+
+            return HandlePointerTap(screenPosition);
+        }
+
         private IEnumerator WrongTapRoutine()
         {
             var elapsed = 0f;

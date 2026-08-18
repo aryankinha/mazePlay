@@ -33,12 +33,16 @@ namespace ArrowMaze.UI
         [SerializeField] private TMP_Text popupTitle;
         [SerializeField] private TMP_Text popupMessage;
         [SerializeField] private Button popupRestartButton;
+        [SerializeField] private Button popupNextButton;
+        [SerializeField] private Button popupMapButton;
 
         private LivesManager livesManager;
         private PathValidator pathValidator;
         private Action restartAction;
         private Action undoAction;
         private Action hintAction;
+        private Action nextAction;
+        private Action mapAction;
 
         private Coroutine[] heartFeedback;
         private Coroutine popupRevealRoutine;
@@ -58,7 +62,10 @@ namespace ArrowMaze.UI
             Action onRestart,
             Action onUndo = null,
             Action onHint = null,
-            int levelNumber = 23)
+            int levelNumber = 23,
+            string difficulty = "Normal",
+            Action onNext = null,
+            Action onMap = null)
         {
             Unbind();
 
@@ -67,6 +74,8 @@ namespace ArrowMaze.UI
             restartAction = onRestart;
             undoAction = onUndo;
             hintAction = onHint;
+            nextAction = onNext;
+            mapAction = onMap;
             remainingHints = 2;
 
             if (titleText != null)
@@ -83,7 +92,7 @@ namespace ArrowMaze.UI
 
             if (difficultyText != null)
             {
-                difficultyText.text = "Normal";
+                difficultyText.text = difficulty;
             }
 
             if (livesManager != null)
@@ -108,6 +117,9 @@ namespace ArrowMaze.UI
             {
                 popupRestartButton.onClick.AddListener(RestartPressed);
             }
+
+            if (popupNextButton != null) popupNextButton.onClick.AddListener(NextPressed);
+            if (popupMapButton != null) popupMapButton.onClick.AddListener(MapPressed);
 
             if (undoButton != null)
             {
@@ -136,9 +148,10 @@ namespace ArrowMaze.UI
             UpdateCarsCount();
         }
 
-        public void ShowLevelComplete()
+        public void ShowLevelComplete(int stars = 1, bool hasNextLevel = true)
         {
-            ShowPopup("Level Complete!", "All cars escaped smoothly.");
+            ShowPopup("Level Complete!", new string('*', Mathf.Clamp(stars, 1, 3)) + "  " + stars + "/3 STARS\nTraffic cleared!");
+            if (popupNextButton != null) popupNextButton.gameObject.SetActive(hasNextLevel);
         }
 
         public void ShowGameOver()
@@ -160,6 +173,8 @@ namespace ArrowMaze.UI
             hintCountText = hintCountText != null ? hintCountText : FindChild<TMP_Text>("Hint Count");
             hintButton = hintButton != null ? hintButton : FindChild<Button>("Hint Button");
             undoButton = undoButton != null ? undoButton : FindChild<Button>("Undo Button");
+            popupNextButton = popupNextButton != null ? popupNextButton : FindChild<Button>("Popup Next Button");
+            popupMapButton = popupMapButton != null ? popupMapButton : FindChild<Button>("Popup Map Button");
         }
 
         private T FindChild<T>(string objectName) where T : Component
@@ -179,6 +194,9 @@ namespace ArrowMaze.UI
         {
             restartAction?.Invoke();
         }
+
+        private void NextPressed() => nextAction?.Invoke();
+        private void MapPressed() => mapAction?.Invoke();
 
         private void UndoPressed()
         {
@@ -384,6 +402,9 @@ namespace ArrowMaze.UI
                 popupRestartButton.onClick.RemoveListener(RestartPressed);
             }
 
+            if (popupNextButton != null) popupNextButton.onClick.RemoveListener(NextPressed);
+            if (popupMapButton != null) popupMapButton.onClick.RemoveListener(MapPressed);
+
             if (undoButton != null)
             {
                 undoButton.onClick.RemoveListener(UndoPressed);
@@ -397,6 +418,8 @@ namespace ArrowMaze.UI
             restartAction = null;
             undoAction = null;
             hintAction = null;
+            nextAction = null;
+            mapAction = null;
         }
     }
 }

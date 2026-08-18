@@ -138,6 +138,12 @@ namespace ArrowMaze.Core
             }
         }
 
+        /// <summary>Single tap entry point shared by tile input and deterministic UI automation.</summary>
+        public void RequestTap(GridCoordinate coordinate)
+        {
+            TileTapped?.Invoke(coordinate);
+        }
+
         private void SpawnBoardCard(MazeLevel level)
         {
             var cardSprite = TileVisualFactory.GetBoardCardSprite();
@@ -199,7 +205,7 @@ namespace ArrowMaze.Core
 
         private void HandleTileTapped(GridCoordinate coordinate)
         {
-            TileTapped?.Invoke(coordinate);
+            RequestTap(coordinate);
         }
 
         private Vector3 GetLocalPosition(GridCoordinate coordinate, MazeLevel level)
