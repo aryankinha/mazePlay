@@ -33,7 +33,11 @@ namespace ArrowMaze.Core
                 current = Move(current, direction);
                 if (!level.IsInBounds(current))
                 {
-                    return true;
+                    // The same topology used for rendering owns legal exits. A car
+                    // cannot leave through a border where no physical gate exists.
+                    return level.GetRoadTopology().HasExitGate(
+                        Move(current, Opposite(direction)),
+                        direction);
                 }
 
                 if (!cleared[current.Row, current.Column])
@@ -75,6 +79,18 @@ namespace ArrowMaze.Core
                     return new GridCoordinate(origin.Row, origin.Column - 1);
                 default:
                     throw new ArgumentOutOfRangeException(nameof(direction), direction, null);
+            }
+        }
+
+        private static ArrowDirection Opposite(ArrowDirection direction)
+        {
+            switch (direction)
+            {
+                case ArrowDirection.Up: return ArrowDirection.Down;
+                case ArrowDirection.Right: return ArrowDirection.Left;
+                case ArrowDirection.Down: return ArrowDirection.Up;
+                case ArrowDirection.Left: return ArrowDirection.Right;
+                default: throw new ArgumentOutOfRangeException(nameof(direction), direction, null);
             }
         }
     }

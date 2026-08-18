@@ -43,6 +43,7 @@ namespace ArrowMaze.Core
         private readonly bool[,] hasCar;
         private readonly ReadOnlyCollection<GridCoordinate> constructionOrder;
         private readonly ReadOnlyCollection<GridCoordinate> trapCoordinates;
+        private RoadTopology roadTopology;
 
         internal MazeLevel(
             ArrowDirection[,] directions,
@@ -165,6 +166,11 @@ namespace ArrowMaze.Core
             }
 
             return cleared;
+        }
+
+        public RoadTopology GetRoadTopology()
+        {
+            return roadTopology ?? (roadTopology = RoadTopology.Build(this));
         }
 
         private ReadOnlyCollection<GridCoordinate> CopyCoordinates(IList<GridCoordinate> source, string paramName)

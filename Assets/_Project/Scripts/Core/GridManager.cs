@@ -28,8 +28,6 @@ namespace ArrowMaze.Core
         private readonly Dictionary<GridCoordinate, TileController> tiles =
             new Dictionary<GridCoordinate, TileController>();
 
-        private readonly HashSet<GridCoordinate> clearedCells = new HashSet<GridCoordinate>();
-
         private Transform tileContainer;
         private GameObject boardCardObject;
         private MazeLevel currentLevel;
@@ -59,6 +57,7 @@ namespace ArrowMaze.Core
             FrameGridInCamera(level);
 
             SpawnBoardCard(level);
+            var roadTopology = level.GetRoadTopology();
 
             for (var row = 0; row < level.Rows; row++)
             {
@@ -72,13 +71,19 @@ namespace ArrowMaze.Core
                     var hasCar = level.HasCar(coordinate);
                     var colorIndex = coordinate.Row * 5 + coordinate.Column * 3 + level.Seed;
 
-                    tile.Initialize(coordinate, level.GetDirection(coordinate), cellSize, hasCar, colorIndex);
+                    tile.Initialize(
+                        coordinate,
+                        level.GetDirection(coordinate),
+                        roadTopology.GetConnections(coordinate),
+                        cellSize,
+                        hasCar,
+                        colorIndex);
                     tile.TapRequested += HandleTileTapped;
                     tiles.Add(coordinate, tile);
                 }
             }
 
-            SpawnExitGates(level);
+            SpawnExitGates(level, roadTopology);
         }
 
         public void PlayClearAnimation(GridCoordinate coordinate)
@@ -88,9 +93,7 @@ namespace ArrowMaze.Core
                 return;
             }
 
-            clearedCells.Add(coordinate);
-            tile.PlayClearAnimation(GetTrailConnections(coordinate));
-            RefreshNeighbourTrails(coordinate);
+            tile.PlayClearAnimation();
         }
 
         public void RestoreCar(GridCoordinate coordinate)
@@ -100,9 +103,7 @@ namespace ArrowMaze.Core
                 return;
             }
 
-            clearedCells.Remove(coordinate);
             tile.RestoreCar();
-            RefreshNeighbourTrails(coordinate);
         }
 
         public void ShowHint(GridCoordinate coordinate)
@@ -160,7 +161,7 @@ namespace ArrowMaze.Core
                                                               1f);
         }
 
-        private void SpawnExitGates(MazeLevel level)
+        private void SpawnExitGates(MazeLevel level, RoadTopology roadTopology)
         {
             var gateSprite = TileVisualFactory.GetExitGateSprite();
             if (gateSprite == null)
@@ -176,96 +177,23 @@ namespace ArrowMaze.Core
                 for (var column = 0; column < level.Columns; column++)
                 {
                     var coord = new GridCoordinate(row, column);
-                    if (!level.HasCar(coord))
+                    foreach (var direction in CardinalDirections)
                     {
-                        continue;
-                    }
+                        if (!roadTopology.HasExitGate(coord, direction))
+                        {
+                            continue;
+                        }
 
-                    var dir = level.GetDirection(coord);
-                    var isExit = false;
-                    var rotZ = 0f;
-                    var offset = Vector3.zero;
-
-                    if (row == 0 && dir == ArrowDirection.Up)
-                    {
-                        isExit = true;
-                        rotZ = 0f;
-                        offset = Vector3.up * (cellSize * 0.50f);
-                    }
-                    else if (row == level.Rows - 1 && dir == ArrowDirection.Down)
-                    {
-                        isExit = true;
-                        rotZ = 180f;
-                        offset = Vector3.down * (cellSize * 0.50f);
-                    }
-                    else if (column == 0 && dir == ArrowDirection.Left)
-                    {
-                        isExit = true;
-                        rotZ = 90f;
-                        offset = Vector3.left * (cellSize * 0.50f);
-                    }
-                    else if (column == level.Columns - 1 && dir == ArrowDirection.Right)
-                    {
-                        isExit = true;
-                        rotZ = -90f;
-                        offset = Vector3.right * (cellSize * 0.50f);
-                    }
-
-                    if (isExit)
-                    {
                         var gateObj = new GameObject($"ExitGate ({row}, {column})");
                         gateObj.transform.SetParent(gateContainer.transform, false);
-                        gateObj.transform.localPosition = GetLocalPosition(coord, level) + offset;
-                        gateObj.transform.localRotation = Quaternion.Euler(0f, 0f, rotZ);
+                        gateObj.transform.localPosition = GetLocalPosition(coord, level) + GateOffset(direction);
+                        gateObj.transform.localRotation = Quaternion.Euler(0f, 0f, GateRotation(direction));
                         var sr = gateObj.AddComponent<SpriteRenderer>();
                         sr.sprite = gateSprite;
                         sr.sortingOrder = 6;
                         gateObj.transform.localScale = Vector3.one * ScaleSpriteToWorldSize(gateSprite, cellSize * 0.42f);
                     }
                 }
-            }
-        }
-
-        private void RefreshNeighbourTrails(GridCoordinate coordinate)
-        {
-            foreach (var direction in CardinalDirections)
-            {
-                var neighbour = StraightLineLegality.Move(coordinate, direction);
-                if (clearedCells.Contains(neighbour) && tiles.TryGetValue(neighbour, out var tile))
-                {
-                    tile.SetTrailConnections(GetTrailConnections(neighbour));
-                }
-            }
-        }
-
-        private TrailConnections GetTrailConnections(GridCoordinate coordinate)
-        {
-            var connections = TrailConnections.None;
-            foreach (var direction in CardinalDirections)
-            {
-                if (clearedCells.Contains(StraightLineLegality.Move(coordinate, direction)))
-                {
-                    connections |= ConnectionFor(direction);
-                }
-            }
-
-            return connections;
-        }
-
-        private static TrailConnections ConnectionFor(ArrowDirection direction)
-        {
-            switch (direction)
-            {
-                case ArrowDirection.Up:
-                    return TrailConnections.Up;
-                case ArrowDirection.Right:
-                    return TrailConnections.Right;
-                case ArrowDirection.Down:
-                    return TrailConnections.Down;
-                case ArrowDirection.Left:
-                    return TrailConnections.Left;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(direction), direction, null);
             }
         }
 
@@ -305,8 +233,6 @@ namespace ArrowMaze.Core
             }
 
             tiles.Clear();
-            clearedCells.Clear();
-
             if (tileContainer != null)
             {
                 tileContainer.gameObject.SetActive(false);
@@ -377,6 +303,30 @@ namespace ArrowMaze.Core
 
             var sourceWorldSize = Mathf.Max(sprite.rect.width, sprite.rect.height) / sprite.pixelsPerUnit;
             return sourceWorldSize > 0.0001f ? targetWorldSize / sourceWorldSize : targetWorldSize;
+        }
+
+        private Vector3 GateOffset(ArrowDirection direction)
+        {
+            switch (direction)
+            {
+                case ArrowDirection.Up: return Vector3.up * (cellSize * 0.50f);
+                case ArrowDirection.Right: return Vector3.right * (cellSize * 0.50f);
+                case ArrowDirection.Down: return Vector3.down * (cellSize * 0.50f);
+                case ArrowDirection.Left: return Vector3.left * (cellSize * 0.50f);
+                default: throw new ArgumentOutOfRangeException(nameof(direction), direction, null);
+            }
+        }
+
+        private static float GateRotation(ArrowDirection direction)
+        {
+            switch (direction)
+            {
+                case ArrowDirection.Up: return 0f;
+                case ArrowDirection.Right: return -90f;
+                case ArrowDirection.Down: return 180f;
+                case ArrowDirection.Left: return 90f;
+                default: throw new ArgumentOutOfRangeException(nameof(direction), direction, null);
+            }
         }
     }
 }

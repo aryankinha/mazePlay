@@ -14,19 +14,16 @@ namespace ArrowMaze.Gameplay
         private const float WrongTapDuration = 0.20f;
         private const float ColliderInset = 0.95f;
 
-        private static readonly Color TrailColor = new Color32(0x21, 0x96, 0xF3, 0xFF);
         private static readonly Color WrongTapColor = new Color32(244, 67, 54, 255);
 
         private SpriteRenderer rootRenderer;
         private BoxCollider2D tileCollider;
         
         private SpriteRenderer roadRenderer;
-        private SpriteRenderer trailRenderer;
         private SpriteRenderer carRenderer;
         private SpriteRenderer glowRenderer;
         
         private Transform roadTransform;
-        private Transform trailTransform;
         private Transform carTransform;
         private Transform glowTransform;
 
@@ -34,10 +31,8 @@ namespace ArrowMaze.Gameplay
         private bool hasCar = true;
         private bool isCleared;
         private float cellSize = 1f;
-        private TrailConnections trailConnections = TrailConnections.None;
         private Coroutine wrongTapRoutine;
         private Coroutine hintGlowRoutine;
-        private Vector3 restingLocalPosition;
         private int carColorIndex;
 
         public event Action<GridCoordinate> TapRequested;
@@ -65,6 +60,7 @@ namespace ArrowMaze.Gameplay
         public void Initialize(
             GridCoordinate coordinate,
             ArrowDirection direction,
+            RoadConnections roadConnections,
             float cellWorldSize,
             bool hasCar = true,
             int colorIndex = 0)
@@ -82,16 +78,14 @@ namespace ArrowMaze.Gameplay
             transform.localScale = Vector3.one;
 
             var rotZ = RotationFor(direction);
-            roadTransform.localRotation = Quaternion.Euler(0f, 0f, rotZ);
             carTransform.localRotation = Quaternion.Euler(0f, 0f, rotZ);
-            trailTransform.localRotation = Quaternion.identity;
-
-            restingLocalPosition = transform.localPosition;
 
             // Road visual (Always visible on road tiles)
-            roadRenderer.sprite = TileVisualFactory.GetRoadSprite(direction);
+            var roadVisual = TileVisualFactory.GetRoadSprite(roadConnections);
+            roadRenderer.sprite = roadVisual.Sprite;
             roadRenderer.color = Color.white;
-            roadRenderer.enabled = true;
+            roadRenderer.enabled = roadVisual.Sprite != null;
+            roadTransform.localRotation = Quaternion.Euler(0f, 0f, roadVisual.RotationZ);
             roadTransform.localScale = Vector3.one * ScaleSpriteToWorldSize(roadRenderer.sprite, cellSize);
 
             // Car visual
@@ -109,12 +103,6 @@ namespace ArrowMaze.Gameplay
                 glowTransform.localScale = Vector3.one * ScaleSpriteToWorldSize(glowRenderer.sprite, cellSize * 1.1f);
             }
 
-            // Trail visual
-            trailConnections = TrailConnections.None;
-            trailRenderer.sprite = TileVisualFactory.GetTrailSprite(trailConnections);
-            trailRenderer.color = TrailColor;
-            trailRenderer.enabled = false;
-
             isCleared = !hasCar;
             acceptsInput = hasCar;
             tileCollider.enabled = hasCar;
@@ -124,7 +112,6 @@ namespace ArrowMaze.Gameplay
         {
             cellSize = Mathf.Max(0.01f, cellWorldSize);
             roadTransform.localScale = Vector3.one * cellSize;
-            trailTransform.localScale = Vector3.one * cellSize;
             carTransform.localScale = Vector3.one * (cellSize * 0.72f);
             if (glowTransform != null) glowTransform.localScale = Vector3.one * (cellSize * 1.1f);
             tileCollider.size = Vector2.one * (cellSize * ColliderInset);
@@ -139,16 +126,7 @@ namespace ArrowMaze.Gameplay
             }
         }
 
-        public void SetTrailConnections(TrailConnections connections)
-        {
-            trailConnections = connections;
-            if (isCleared && trailRenderer != null)
-            {
-                trailRenderer.sprite = TileVisualFactory.GetTrailSprite(connections);
-            }
-        }
-
-        public void PlayClearAnimation(TrailConnections connections)
+        public void PlayClearAnimation()
         {
             if (isCleared || !hasCar)
             {
@@ -163,12 +141,9 @@ namespace ArrowMaze.Gameplay
             {
                 StopCoroutine(wrongTapRoutine);
                 wrongTapRoutine = null;
-                transform.localPosition = restingLocalPosition;
+                carTransform.localPosition = Vector3.zero;
             }
 
-            trailConnections = connections;
-            trailRenderer.sprite = TileVisualFactory.GetTrailSprite(connections);
-            trailRenderer.enabled = true;
             StartCoroutine(ClearDriveRoutine());
         }
 
@@ -186,7 +161,6 @@ namespace ArrowMaze.Gameplay
             carTransform.localPosition = Vector3.zero;
             carRenderer.color = Color.white;
             carRenderer.enabled = true;
-            trailRenderer.enabled = false;
         }
 
         public void ShowHint()
@@ -275,7 +249,7 @@ namespace ArrowMaze.Gameplay
             if (wrongTapRoutine != null)
             {
                 StopCoroutine(wrongTapRoutine);
-                transform.localPosition = restingLocalPosition;
+                carTransform.localPosition = Vector3.zero;
                 carRenderer.color = Color.white;
             }
 
@@ -292,14 +266,14 @@ namespace ArrowMaze.Gameplay
                 elapsed += Time.deltaTime;
                 var progress = elapsed / WrongTapDuration;
                 var offset = Mathf.Sin(progress * Mathf.PI * 8f) * shakeAmplitude;
-                transform.localPosition = restingLocalPosition + (Vector3.right * offset);
+                carTransform.localPosition = Vector3.right * offset;
 
                 var flash = Mathf.PingPong(progress * 4f, 1f);
                 carRenderer.color = Color.Lerp(Color.white, WrongTapColor, flash);
                 yield return null;
             }
 
-            transform.localPosition = restingLocalPosition;
+            carTransform.localPosition = Vector3.zero;
             carRenderer.color = Color.white;
             wrongTapRoutine = null;
         }
@@ -357,19 +331,14 @@ namespace ArrowMaze.Gameplay
                 roadRenderer = EnsureChildRenderer("Road", 0, out roadTransform);
             }
 
-            if (trailRenderer == null)
-            {
-                trailRenderer = EnsureChildRenderer("Trail", 1, out trailTransform);
-            }
-
             if (glowRenderer == null)
             {
-                glowRenderer = EnsureChildRenderer("Glow", 2, out glowTransform);
+                glowRenderer = EnsureChildRenderer("Glow", 1, out glowTransform);
             }
 
             if (carRenderer == null)
             {
-                carRenderer = EnsureChildRenderer("Car", 3, out carTransform);
+                carRenderer = EnsureChildRenderer("Car", 2, out carTransform);
             }
 
         }

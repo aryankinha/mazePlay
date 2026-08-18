@@ -80,5 +80,29 @@ namespace ArrowMaze.Tests
             Assert.That(solve.IsSolved, Is.True);
             Assert.That(solve.ClearOrder.Count, Is.EqualTo(2));
         }
+
+        [Test]
+        public void RoadTopology_EndsEachCarRouteAtItsActualExitGate()
+        {
+            var level = MazeLevel.FromDirections(
+                new[,]
+                {
+                    { ArrowDirection.Right, ArrowDirection.Down },
+                    { ArrowDirection.Up, ArrowDirection.Left }
+                },
+                new[,]
+                {
+                    { true, false },
+                    { false, false }
+                });
+
+            var topology = level.GetRoadTopology();
+            Assert.That(topology.GetConnections(new GridCoordinate(0, 0)),
+                Is.EqualTo(RoadConnections.Right));
+            Assert.That(topology.GetConnections(new GridCoordinate(0, 1)),
+                Is.EqualTo(RoadConnections.Left | RoadConnections.Right));
+            Assert.That(topology.HasExitGate(new GridCoordinate(0, 1), ArrowDirection.Right), Is.True);
+            Assert.That(topology.HasExitGate(new GridCoordinate(0, 1), ArrowDirection.Up), Is.False);
+        }
     }
 }
