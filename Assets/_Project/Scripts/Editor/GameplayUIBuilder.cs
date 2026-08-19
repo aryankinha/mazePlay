@@ -445,7 +445,11 @@ namespace ArrowMaze.Editor
             undoLabelTMP.alignment = TextAlignmentOptions.Center;
             undoLabelTMP.raycastTarget = false;
 
-            // 8. Wire GameplayHUD serialized fields
+            // 8. Settings Modal
+            var cardBoardBg = LoadSprite("Assets/_Project/Sprites/UI/card_board_bg.png");
+            var settingsModal = CreateSettingsModal(safeAreaObj.transform, buttonCircle, badgePill, cardBoardBg);
+
+            // 9. Wire GameplayHUD serialized fields
             var hud = canvasObj.GetComponent<GameplayHUD>();
             if (hud == null)
             {
@@ -462,6 +466,7 @@ namespace ArrowMaze.Editor
             serializedHUD.FindProperty("hintButton").objectReferenceValue = hintBtn;
             serializedHUD.FindProperty("hintCountText").objectReferenceValue = hintCountTMP;
             serializedHUD.FindProperty("undoButton").objectReferenceValue = undoBtn;
+            serializedHUD.FindProperty("settingsModal").objectReferenceValue = settingsModal;
 
             var heartArrayProp = serializedHUD.FindProperty("heartIcons");
             heartArrayProp.arraySize = 3;
@@ -483,7 +488,7 @@ namespace ArrowMaze.Editor
             serializedHUD.ApplyModifiedProperties();
             EditorUtility.SetDirty(hud);
 
-            // 9. Save Scene
+            // 10. Save Scene
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
             Debug.Log("✅ [GameplayUIBuilder] Successfully reconstructed Gameplay UI according to reference mockup!");
@@ -501,6 +506,190 @@ namespace ArrowMaze.Editor
             img.preserveAspect = true;
             img.raycastTarget = false;
             return obj;
+        }
+
+        private static SettingsModal CreateSettingsModal(Transform parent, Sprite buttonCircle, Sprite badgePill, Sprite cardBoardBg)
+        {
+            var modalRoot = new GameObject("Settings Modal", typeof(RectTransform), typeof(Image), typeof(SettingsModal));
+            modalRoot.transform.SetParent(parent, false);
+            var modalRect = modalRoot.GetComponent<RectTransform>();
+            modalRect.anchorMin = Vector2.zero;
+            modalRect.anchorMax = Vector2.one;
+            modalRect.offsetMin = Vector2.zero;
+            modalRect.offsetMax = Vector2.zero;
+            var dimImg = modalRoot.GetComponent<Image>();
+            dimImg.color = new Color(0.04f, 0.08f, 0.16f, 0.60f);
+
+            var card = new GameObject("Card", typeof(RectTransform), typeof(Image));
+            card.transform.SetParent(modalRoot.transform, false);
+            var cardRect = card.GetComponent<RectTransform>();
+            cardRect.anchorMin = new Vector2(0.5f, 0.5f);
+            cardRect.anchorMax = new Vector2(0.5f, 0.5f);
+            cardRect.anchoredPosition = Vector2.zero;
+            cardRect.sizeDelta = new Vector2(680f, 680f);
+            var cardImg = card.GetComponent<Image>();
+            cardImg.sprite = cardBoardBg;
+            cardImg.type = Image.Type.Sliced;
+            cardImg.color = Color.white;
+
+            CreateText(card.transform, "Title", "SETTINGS", new Vector2(0f, 260f), new Vector2(400f, 54f), 38f, PrimaryNavy, FontStyles.Bold);
+
+            // Close button
+            var closeBtnObj = new GameObject("CloseButton", typeof(RectTransform), typeof(Image), typeof(Button));
+            closeBtnObj.transform.SetParent(card.transform, false);
+            var closeRect = closeBtnObj.GetComponent<RectTransform>();
+            closeRect.anchorMin = new Vector2(1f, 1f);
+            closeRect.anchorMax = new Vector2(1f, 1f);
+            closeRect.pivot = new Vector2(1f, 1f);
+            closeRect.anchoredPosition = new Vector2(-36f, -36f);
+            closeRect.sizeDelta = new Vector2(76f, 76f);
+            var closeImg = closeBtnObj.GetComponent<Image>();
+            closeImg.sprite = buttonCircle;
+            closeImg.color = new Color32(226, 232, 240, 255);
+            var closeBtn = closeBtnObj.GetComponent<Button>();
+            closeBtn.targetGraphic = closeImg;
+            CreateText(closeBtnObj.transform, "Icon", "✕", Vector2.zero, new Vector2(40f, 40f), 28f, PrimaryNavy, FontStyles.Bold);
+
+            // Rows (Sound, Music, Haptics)
+            var (soundBtn, soundText, soundImg) = CreateSettingRow(card.transform, "Sound Effects", new Vector2(0f, 140f), badgePill);
+            var (musicBtn, musicText, musicImg) = CreateSettingRow(card.transform, "Music", new Vector2(0f, 45f), badgePill);
+            var (hapticsBtn, hapticsText, hapticsImg) = CreateSettingRow(card.transform, "Haptics", new Vector2(0f, -50f), badgePill);
+
+            // Reset Progress Button
+            var resetBtnObj = new GameObject("ResetButton", typeof(RectTransform), typeof(Image), typeof(Button));
+            resetBtnObj.transform.SetParent(card.transform, false);
+            var resetRect = resetBtnObj.GetComponent<RectTransform>();
+            resetRect.anchoredPosition = new Vector2(0f, -165f);
+            resetRect.sizeDelta = new Vector2(440f, 84f);
+            var resetImg = resetBtnObj.GetComponent<Image>();
+            resetImg.sprite = badgePill;
+            resetImg.type = Image.Type.Sliced;
+            resetImg.color = new Color32(254, 235, 235, 255);
+            var resetBtn = resetBtnObj.GetComponent<Button>();
+            resetBtn.targetGraphic = resetImg;
+            CreateText(resetBtnObj.transform, "Label", "Reset All Progress", Vector2.zero, new Vector2(400f, 40f), 24f, new Color32(235, 87, 87, 255), FontStyles.Bold);
+
+            // Reset Confirmation Dialog (Sub-modal)
+            var confirmObj = new GameObject("ResetConfirmDialog", typeof(RectTransform), typeof(Image));
+            confirmObj.transform.SetParent(modalRoot.transform, false);
+            var confirmRect = confirmObj.GetComponent<RectTransform>();
+            confirmRect.anchorMin = Vector2.zero;
+            confirmRect.anchorMax = Vector2.one;
+            confirmRect.offsetMin = Vector2.zero;
+            confirmRect.offsetMax = Vector2.zero;
+            confirmObj.GetComponent<Image>().color = new Color(0.04f, 0.08f, 0.16f, 0.70f);
+
+            var confCard = new GameObject("ConfirmCard", typeof(RectTransform), typeof(Image));
+            confCard.transform.SetParent(confirmObj.transform, false);
+            var confCardRect = confCard.GetComponent<RectTransform>();
+            confCardRect.anchorMin = new Vector2(0.5f, 0.5f);
+            confCardRect.anchorMax = new Vector2(0.5f, 0.5f);
+            confCardRect.anchoredPosition = Vector2.zero;
+            confCardRect.sizeDelta = new Vector2(620f, 400f);
+            var confCardImg = confCard.GetComponent<Image>();
+            confCardImg.sprite = cardBoardBg;
+            confCardImg.type = Image.Type.Sliced;
+            confCardImg.color = Color.white;
+
+            CreateText(confCard.transform, "Title", "Reset All Progress?", new Vector2(0f, 110f), new Vector2(500f, 48f), 32f, PrimaryNavy, FontStyles.Bold);
+            CreateText(confCard.transform, "Message", "This will reset all unlocked levels\nand stars. This cannot be undone.", new Vector2(0f, 30f), new Vector2(520f, 80f), 22f, SubtitleGray, FontStyles.Normal);
+
+            // Cancel Button
+            var cancelBtnObj = new GameObject("CancelButton", typeof(RectTransform), typeof(Image), typeof(Button));
+            cancelBtnObj.transform.SetParent(confCard.transform, false);
+            var cancelRect = cancelBtnObj.GetComponent<RectTransform>();
+            cancelRect.anchoredPosition = new Vector2(-130f, -95f);
+            cancelRect.sizeDelta = new Vector2(210f, 84f);
+            var cancelImg = cancelBtnObj.GetComponent<Image>();
+            cancelImg.sprite = badgePill;
+            cancelImg.type = Image.Type.Sliced;
+            cancelImg.color = new Color32(226, 232, 240, 255);
+            var cancelBtn = cancelBtnObj.GetComponent<Button>();
+            cancelBtn.targetGraphic = cancelImg;
+            CreateText(cancelBtnObj.transform, "Label", "CANCEL", Vector2.zero, new Vector2(180f, 36f), 24f, PrimaryNavy, FontStyles.Bold);
+
+            // Confirm Button
+            var okBtnObj = new GameObject("OkButton", typeof(RectTransform), typeof(Image), typeof(Button));
+            okBtnObj.transform.SetParent(confCard.transform, false);
+            var okRect = okBtnObj.GetComponent<RectTransform>();
+            okRect.anchoredPosition = new Vector2(130f, -95f);
+            okRect.sizeDelta = new Vector2(210f, 84f);
+            var okImg = okBtnObj.GetComponent<Image>();
+            okImg.sprite = badgePill;
+            okImg.type = Image.Type.Sliced;
+            okImg.color = new Color32(235, 87, 87, 255);
+            var okBtn = okBtnObj.GetComponent<Button>();
+            okBtn.targetGraphic = okImg;
+            CreateText(okBtnObj.transform, "Label", "RESET", Vector2.zero, new Vector2(180f, 36f), 24f, Color.white, FontStyles.Bold);
+
+            confirmObj.SetActive(false);
+
+            // Wire SettingsModal
+            var modalComp = modalRoot.GetComponent<SettingsModal>();
+            var ser = new SerializedObject(modalComp);
+            ser.FindProperty("modalCard").objectReferenceValue = card;
+            ser.FindProperty("closeButton").objectReferenceValue = closeBtn;
+            ser.FindProperty("soundToggleButton").objectReferenceValue = soundBtn;
+            ser.FindProperty("soundToggleText").objectReferenceValue = soundText;
+            ser.FindProperty("soundToggleImage").objectReferenceValue = soundImg;
+            ser.FindProperty("musicToggleButton").objectReferenceValue = musicBtn;
+            ser.FindProperty("musicToggleText").objectReferenceValue = musicText;
+            ser.FindProperty("musicToggleImage").objectReferenceValue = musicImg;
+            ser.FindProperty("hapticsToggleButton").objectReferenceValue = hapticsBtn;
+            ser.FindProperty("hapticsToggleText").objectReferenceValue = hapticsText;
+            ser.FindProperty("hapticsToggleImage").objectReferenceValue = hapticsImg;
+            ser.FindProperty("resetProgressButton").objectReferenceValue = resetBtn;
+            ser.FindProperty("resetConfirmDialog").objectReferenceValue = confirmObj;
+            ser.FindProperty("resetConfirmCancelButton").objectReferenceValue = cancelBtn;
+            ser.FindProperty("resetConfirmOkButton").objectReferenceValue = okBtn;
+            ser.ApplyModifiedProperties();
+
+            modalRoot.SetActive(false);
+            return modalComp;
+        }
+
+        private static (Button btn, TMP_Text label, Image img) CreateSettingRow(Transform parent, string title, Vector2 pos, Sprite badgePill)
+        {
+            var rowObj = new GameObject(title + " Row", typeof(RectTransform));
+            rowObj.transform.SetParent(parent, false);
+            var rect = rowObj.GetComponent<RectTransform>();
+            rect.anchoredPosition = pos;
+            rect.sizeDelta = new Vector2(520f, 70f);
+
+            CreateText(rowObj.transform, "Title", title, new Vector2(-90f, 0f), new Vector2(300f, 40f), 28f, PrimaryNavy, FontStyles.Bold, TextAlignmentOptions.MidlineLeft);
+
+            var toggleObj = new GameObject("Toggle", typeof(RectTransform), typeof(Image), typeof(Button));
+            toggleObj.transform.SetParent(rowObj.transform, false);
+            var tRect = toggleObj.GetComponent<RectTransform>();
+            tRect.anchoredPosition = new Vector2(170f, 0f);
+            tRect.sizeDelta = new Vector2(130f, 54f);
+            var tImg = toggleObj.GetComponent<Image>();
+            tImg.sprite = badgePill;
+            tImg.type = Image.Type.Sliced;
+            tImg.color = AccentBlue;
+            var tBtn = toggleObj.GetComponent<Button>();
+            tBtn.targetGraphic = tImg;
+
+            var tText = CreateText(toggleObj.transform, "Label", "ON", Vector2.zero, new Vector2(100f, 36f), 22f, Color.white, FontStyles.Bold);
+
+            return (tBtn, tText, tImg);
+        }
+
+        private static TMP_Text CreateText(Transform parent, string name, string content, Vector2 pos, Vector2 size, float fontSize, Color color, FontStyles style = FontStyles.Normal, TextAlignmentOptions align = TextAlignmentOptions.Center)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
+            go.transform.SetParent(parent, false);
+            var rect = go.GetComponent<RectTransform>();
+            rect.anchoredPosition = pos;
+            rect.sizeDelta = size;
+            var text = go.GetComponent<TextMeshProUGUI>();
+            text.text = content;
+            text.fontSize = fontSize;
+            text.color = color;
+            text.fontStyle = style;
+            text.alignment = align;
+            text.raycastTarget = false;
+            return text;
         }
 
         private static Sprite LoadSprite(string assetPath)

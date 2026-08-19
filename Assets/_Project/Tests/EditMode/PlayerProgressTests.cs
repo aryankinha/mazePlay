@@ -75,5 +75,42 @@ namespace ArrowMaze.Tests
                 Assert.That(ChainPuzzleSolver.TrySolve(level).IsSolved, Is.True, "Level " + levelId);
             }
         }
+
+        [Test]
+        public void Settings_TogglesPersistCorrectly()
+        {
+            PlayerProgress.SoundEnabled = false;
+            PlayerProgress.MusicEnabled = false;
+            PlayerProgress.HapticsEnabled = false;
+
+            Assert.That(PlayerProgress.SoundEnabled, Is.False);
+            Assert.That(PlayerProgress.MusicEnabled, Is.False);
+            Assert.That(PlayerProgress.HapticsEnabled, Is.False);
+
+            PlayerProgress.SoundEnabled = true;
+            PlayerProgress.MusicEnabled = true;
+            PlayerProgress.HapticsEnabled = true;
+
+            Assert.That(PlayerProgress.SoundEnabled, Is.True);
+            Assert.That(PlayerProgress.MusicEnabled, Is.True);
+            Assert.That(PlayerProgress.HapticsEnabled, Is.True);
+        }
+
+        [Test]
+        public void ProgressAggregation_CalculatesTotalStarsAndCompletedLevels()
+        {
+            PlayerProgress.CompleteLevel(1, 3);
+            PlayerProgress.CompleteLevel(2, 2);
+
+            Assert.That(PlayerProgress.GetTotalStarsEarned(), Is.EqualTo(5));
+            Assert.That(PlayerProgress.GetCompletedLevelsCount(), Is.EqualTo(2));
+
+            PlayerProgress.ResetAllProgress();
+
+            Assert.That(PlayerProgress.GetTotalStarsEarned(), Is.EqualTo(0));
+            Assert.That(PlayerProgress.GetCompletedLevelsCount(), Is.EqualTo(0));
+            Assert.That(PlayerProgress.IsUnlocked(1), Is.True);
+            Assert.That(PlayerProgress.IsUnlocked(2), Is.False);
+        }
     }
 }

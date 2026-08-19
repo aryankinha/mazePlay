@@ -79,6 +79,62 @@ namespace ArrowMaze.Meta
             Save();
         }
 
+        public static int GetTotalStarsEarned()
+        {
+            var total = 0;
+            foreach (var record in Data.levelStars)
+            {
+                total += record.stars;
+            }
+            return total;
+        }
+
+        public static int GetCompletedLevelsCount()
+        {
+            var count = 0;
+            foreach (var record in Data.levelStars)
+            {
+                if (record.stars > 0)
+                {
+                    count++;
+                }
+            }
+            return count;
+        }
+
+        public static bool SoundEnabled
+        {
+            get => PlayerPrefs.GetInt("TapAwayCars.SoundEnabled", 1) == 1;
+            set { PlayerPrefs.SetInt("TapAwayCars.SoundEnabled", value ? 1 : 0); PlayerPrefs.Save(); }
+        }
+
+        public static bool MusicEnabled
+        {
+            get => PlayerPrefs.GetInt("TapAwayCars.MusicEnabled", 1) == 1;
+            set { PlayerPrefs.SetInt("TapAwayCars.MusicEnabled", value ? 1 : 0); PlayerPrefs.Save(); }
+        }
+
+        public static bool HapticsEnabled
+        {
+            get => PlayerPrefs.GetInt("TapAwayCars.HapticsEnabled", 1) == 1;
+            set { PlayerPrefs.SetInt("TapAwayCars.HapticsEnabled", value ? 1 : 0); PlayerPrefs.Save(); }
+        }
+
+        public static bool TutorialCompleted
+        {
+            get => PlayerPrefs.GetInt("TapAwayCars.TutorialCompleted", 0) == 1;
+            set { PlayerPrefs.SetInt("TapAwayCars.TutorialCompleted", value ? 1 : 0); PlayerPrefs.Save(); }
+        }
+
+        public static void ResetAllProgress()
+        {
+            cached = new PlayerProgressData();
+            PlayerPrefs.DeleteKey(SaveKey);
+            PlayerPrefs.DeleteKey("TapAwayCars.TutorialCompleted");
+            PlayerPrefs.DeleteKey("TapAwayCars.SelectedLevel");
+            Save();
+        }
+
         public static void ResetForDevelopment()
         {
             cached = new PlayerProgressData();

@@ -159,9 +159,20 @@ namespace ArrowMaze.UI
             UpdateCarsCount();
         }
 
+        [Header("Settings Modal")]
+        [SerializeField] private SettingsModal settingsModal;
+
         public void ShowLevelComplete(int stars = 1, bool hasNextLevel = true)
         {
-            ShowPopup("Level Complete!", new string('*', Mathf.Clamp(stars, 1, 3)) + "  " + stars + "/3 STARS\nTraffic cleared!");
+            var clampedStars = Mathf.Clamp(stars, 1, 3);
+            var starText = clampedStars switch
+            {
+                3 => "★ ★ ★",
+                2 => "★ ★ ☆",
+                _ => "★ ☆ ☆"
+            };
+
+            ShowPopup("LEVEL COMPLETE!", $"{starText}\nGreat driving! Traffic cleared.");
             if (popupNextButton != null) popupNextButton.gameObject.SetActive(hasNextLevel);
         }
 
@@ -186,6 +197,7 @@ namespace ArrowMaze.UI
             undoButton = undoButton != null ? undoButton : FindChild<Button>("Undo Button");
             popupNextButton = popupNextButton != null ? popupNextButton : FindChild<Button>("Popup Next Button");
             popupMapButton = popupMapButton != null ? popupMapButton : FindChild<Button>("Popup Map Button");
+            settingsModal = settingsModal != null ? settingsModal : GetComponentInChildren<SettingsModal>(true);
         }
 
         private T FindChild<T>(string objectName) where T : Component
@@ -211,40 +223,10 @@ namespace ArrowMaze.UI
 
         private void SettingsPressed()
         {
-            EnsureSettingsPanel();
-            settingsRoot.SetActive(true);
-        }
-
-        private void EnsureSettingsPanel()
-        {
-            if (settingsRoot != null)
+            if (settingsModal != null)
             {
-                return;
+                settingsModal.Show();
             }
-
-            settingsRoot = new GameObject("Settings Popup", typeof(RectTransform), typeof(Image));
-            settingsRoot.transform.SetParent(transform, false);
-            var rootRect = settingsRoot.GetComponent<RectTransform>();
-            rootRect.anchorMin = Vector2.zero;
-            rootRect.anchorMax = Vector2.one;
-            rootRect.offsetMin = Vector2.zero;
-            rootRect.offsetMax = Vector2.zero;
-            settingsRoot.GetComponent<Image>().color = new Color(0.04f, 0.08f, 0.16f, 0.62f);
-
-            var card = new GameObject("Settings Card", typeof(RectTransform), typeof(Image));
-            card.transform.SetParent(settingsRoot.transform, false);
-            var cardRect = card.GetComponent<RectTransform>();
-            cardRect.anchorMin = cardRect.anchorMax = new Vector2(.5f, .5f);
-            cardRect.sizeDelta = new Vector2(620f, 430f);
-            card.GetComponent<Image>().color = new Color32(28, 50, 89, 255);
-
-            CreateSettingsText(card.transform, "SETTINGS", new Vector2(0f, 120f), 48f, Color.white);
-            CreateSettingsText(card.transform, "Gameplay settings are ready for\na future sound and accessibility pass.", new Vector2(0f, 35f), 27f, new Color32(224, 235, 250, 255));
-            var close = CreateSettingsButton(card.transform, "CLOSE", new Vector2(-145f, -135f), new Color32(236, 244, 255, 255), new Color32(28, 50, 89, 255));
-            close.onClick.AddListener(() => settingsRoot.SetActive(false));
-            var map = CreateSettingsButton(card.transform, "LEVEL MAP", new Vector2(145f, -135f), new Color32(47, 128, 237, 255), Color.white);
-            map.onClick.AddListener(MapPressed);
-            settingsRoot.SetActive(false);
         }
 
         private static void CreateSettingsText(Transform parent, string value, Vector2 position, float fontSize, Color color)

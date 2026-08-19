@@ -1,6 +1,6 @@
 # 📊 Comprehensive System & Architecture Report: Tap Away Cars
 
-**Document Version:** 1.2.0  
+**Document Version:** 1.3.0  
 **Last Updated:** August 19, 2026  
 **Target Repository:** `/Users/aryankinha/Documents/Aryan/Unity/arrowMaze`  
 **Engine & Platform:** Unity 6000.5.8f1 (6000.5.8f1-5cb7df797b7d) | macOS / iOS / Android  
@@ -16,6 +16,7 @@ The game combines directional arrow logic with a top-down traffic theme:
 * **Movement & Routing:** Tapped cars drive forward along asphalt lanes toward perimeter **EXIT gates**.
 * **Obstruction & Lives:** If a car's path is blocked by another vehicle, it bumps with a red collision flash and camera-safe shake, deducting 1 Heart Life (3 Max).
 * **Boosters & Meta:** Players can use **Hints 💡** to highlight unblocked vehicles, **Undo ↺** to rewind previous moves, progress through a 23-level authored and procedural campaign catalog, and earn up to 3 stars per level saved via local persistence.
+* **Cohesive Design System:** The entire application (Main Menu, Level Map, Gameplay, and Settings) adheres to a unified modern mobile design language: soft light background (`#F4F7FC`), primary navy typography (`#17233D`), slate subtitle text (`#66758F`), accent blue CTAs (`#2F80ED`), gold stars (`#F2C94C`), 9-sliced rounded cards, and circular controls.
 
 ---
 
@@ -27,7 +28,7 @@ The game combines directional arrow logic with a top-down traffic theme:
 | **Render Pipeline** | Universal Render Pipeline (`com.unity.render-pipelines.universal` v17.5.0) | 2D Renderer optimized for mobile Sprite and Canvas rendering |
 | **Input System** | Unity Input System (`com.unity.inputsystem` v1.20.0) | Multi-touch, mouse click, and safe-area pointer raycasting |
 | **UI Framework** | Unity UI (uGUI v2.5.0) & TextMeshPro (`com.unity.ugui`) | Vector-sharp typography, responsive layout anchors, and dynamic notch fitting |
-| **Test Framework** | Unity Test Framework (`com.unity.test-framework` v1.7.0) | NUnit EditMode test runner for 100% puzzle solvability verification |
+| **Test Framework** | Unity Test Framework (`com.unity.test-framework` v1.7.0) | NUnit EditMode test runner for 100% puzzle solvability & progress verification |
 | **Target Orientation** | Portrait (9:16 / 1080×1920 reference) | Dynamic orthographic camera fitting with safe-area reserves |
 
 ---
@@ -46,9 +47,9 @@ Assets/_Project/
     └── ArrowMaze.EditModeTests.asmdef (Root: ArrowMaze.Tests, References: ArrowMaze.Runtime, TestAssemblies)
 ```
 
-* **`ArrowMaze.Runtime`**: Core puzzle algorithm, gameplay controllers, data catalogs, player progress, and UI runtime components.
-* **`ArrowMaze.Editor`**: Editor tooling, automated UI builders (`Tools/Rebuild Gameplay UI`), and menu utilities.
-* **`ArrowMaze.EditModeTests`**: Isolated test harness executing deterministic puzzle generation and validation test suites.
+* **`ArrowMaze.Runtime`**: Core puzzle algorithm, gameplay controllers, data catalogs, player progress, meta UI controllers, and reusable modal components.
+* **`ArrowMaze.Editor`**: Editor tooling, automated scene builders (`Tools/Rebuild All Meta Screens`, `Tools/Rebuild Main Menu UI`, `Tools/Rebuild Level Map UI`, `Tools/Rebuild Gameplay UI`), and menu utilities.
+* **`ArrowMaze.EditModeTests`**: Isolated test harness executing deterministic puzzle generation, solver validation, and progress persistence test suites.
 
 ---
 
@@ -60,14 +61,15 @@ The game is structured across three dedicated scenes:
 graph TD
     MainMenu[Assets/_Project/Scenes/MainMenu.unity] -->|Play / Continue| Gameplay[Assets/_Project/Scenes/Gameplay.unity]
     MainMenu -->|Level Map| LevelMap[Assets/_Project/Scenes/LevelMap.unity]
-    LevelMap -->|Select Level| Gameplay
+    LevelMap -->|Select Level Node| Gameplay
+    LevelMap -->|Back Button| MainMenu
     Gameplay -->|Back Button| MainMenu
     Gameplay -->|Map Button| LevelMap
     Gameplay -->|Next Level| Gameplay
 ```
 
-1. **`MainMenu.unity`**: Title hub with Continue button, Level Map button, Settings modal, and persistent progress overview.
-2. **`LevelMap.unity`**: 23-level saga progression map displaying star ratings (`0..3 ⭐`) and level unlock statuses.
+1. **`MainMenu.unity`**: Title hub featuring the hero card, dynamic CONTINUE/PLAY button, Level Map browser button, Settings modal, and live progress summary (Level & Stars earned).
+2. **`LevelMap.unity`**: 23-level winding road saga map displaying level node states (Current with car badge & "CURRENT" pill, Completed with 1–3 gold star sprites, Locked), auto-scrolling to the player's active level.
 3. **`Gameplay.unity`**: Core gameplay screen with responsive HUD, board frame, live cars, connected roads, perimeter EXIT gates, and victory/defeat popup modals.
 
 ---
@@ -93,8 +95,9 @@ All visual assets were generated with 4× supersampling (512×512 master resolut
 
 ### 📱 UI Sprites (`Assets/_Project/Sprites/UI/`)
 * `heart_full.png` / `heart_empty.png`: High-gloss 3D shaded red hearts for lives tracking.
+* `star_full.png` / `star_empty.png`: Crisp gold and silver-gray star icons for node & level victory ratings.
 * `button_circle.png`: Rounded circular white action button backing.
-* `badge_pill.png`: Sliced rounded pill container for car counters and difficulty badges.
+* `badge_pill.png`: Sliced rounded pill container for car counters, difficulty badges, and CTAs.
 * `icon_back.png`, `icon_settings.png`, `icon_car_badge.png`, `icon_hint.png`, `icon_undo.png`: Navy vector UI glyphs.
 
 ---
@@ -151,7 +154,8 @@ All visual assets were generated with 4× supersampling (512×512 master resolut
 * **Responsibility:** 23 authored and procedural level definitions (Tutorial, Authored, Procedural, Challenge) with tailored grid dimensions (1×1 to 6×8), car densities, trap densities, and branching factors.
 
 #### 11. [`PlayerProgress.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Meta/PlayerProgress.cs)
-* **Responsibility:** Local save data persistence (`TapAwayCars.PlayerProgress.v1`) tracking `highestUnlockedLevel`, `lastPlayedLevel`, and star ratings per level (`0..3 ⭐`).
+* **Responsibility:** Local save data persistence (`TapAwayCars.PlayerProgress.v1`).
+* **Capabilities:** Tracks `highestUnlockedLevel`, `lastPlayedLevel`, star ratings per level (`0..3 ⭐`), audio settings (`SoundEnabled`, `MusicEnabled`, `HapticsEnabled`), `GetTotalStarsEarned()`, `GetCompletedLevelsCount()`, and full data reset via `ResetAllProgress()`.
 
 #### 12. [`LevelSession.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Meta/LevelSession.cs)
 * **Responsibility:** Static session data bridge carrying `SelectedLevel` across scene transitions.
@@ -161,60 +165,82 @@ All visual assets were generated with 4× supersampling (512×512 master resolut
 ### 📁 `Assets/_Project/Scripts/UI/`
 
 #### 13. [`GameplayHUD.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/UI/GameplayHUD.cs)
-* **Responsibility:** Live UI presentation controller binding Title, Level number, Car counter pill, 3 dynamic hearts, difficulty pill, Hint button (with live count badge), Undo button, and victory/defeat popup modals.
+* **Responsibility:** Live UI presentation controller binding Title, Level number, Car counter pill, 3 dynamic hearts, difficulty pill, Hint button (with live count badge), Undo button, `SettingsModal`, and victory/defeat popup modals.
 
-#### 14. [`SafeAreaFitter.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/UI/SafeAreaFitter.cs)
+#### 14. [`MainMenuController.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/UI/MainMenuController.cs)
+* **Responsibility:** Main Menu controller managing the hero card, dynamic PLAY / CONTINUE level button text, Level Map navigation button, Settings modal binding, and progress summary card with live progress bar.
+
+#### 15. [`LevelMapController.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/UI/LevelMapController.cs)
+* **Responsibility:** 23-level saga progression map controller. Wires header buttons, automatically registers level nodes, scrolls smoothly to center the player's active level, and dispatches level launches to `Gameplay.unity`.
+
+#### 16. [`LevelNode.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/UI/LevelNode.cs)
+* **Responsibility:** Reusable node component for the Level Map supporting three distinct visual states:
+  * **Current:** Blue card highlight (`#2F80ED`), white text, animated top car marker (`car_yellow.png`), and "CURRENT" badge pill.
+  * **Completed:** White card (`#FFFFFF`), navy text (`#17233D`), and 3 crisp gold star rating sprites.
+  * **Locked:** Slate card (`#E2E8F0`), muted text, and "LOCKED" badge pill.
+
+#### 17. [`SettingsModal.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/UI/SettingsModal.cs)
+* **Responsibility:** Reusable modal component for Main Menu, Level Map, and Gameplay.
+* **Features:** Semi-transparent dark overlay, Sound Effects toggle (ON/OFF), Music toggle (ON/OFF), Haptics toggle (ON/OFF), Reset All Progress button with secondary confirmation popup dialog, and `OnProgressReset` event dispatching.
+
+#### 18. [`SafeAreaFitter.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/UI/SafeAreaFitter.cs)
 * **Responsibility:** Dynamically adjusts UI RectTransform anchors to accommodate hardware notches, dynamic islands, and home indicator bars across mobile devices.
-
-#### 15. [`MainMenuController.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/UI/MainMenuController.cs) & [`LevelMapController.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/UI/LevelMapController.cs)
-* **Responsibility:** Navigation and presentation controllers for the Main Menu and 23-level saga progression map.
 
 ---
 
 ### 📁 `Assets/_Project/Scripts/Editor/`
 
-#### 16. [`GameplayUIBuilder.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Editor/GameplayUIBuilder.cs)
-* **Responsibility:** Editor automation tool accessible via `Tools/Rebuild Gameplay UI`. Builds the complete responsive canvas hierarchy, configures TextMeshPro styling, assigns sprites, sets non-blocking raycast targets, and wires serialized fields.
+#### 19. [`MetaUIBuilder.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Editor/MetaUIBuilder.cs)
+* **Responsibility:** Automated construction tool for `MainMenu.unity` and `LevelMap.unity`. Accessible via `Tools/Rebuild All Meta Screens`, `Tools/Rebuild Main Menu UI`, and `Tools/Rebuild Level Map UI`. Sets up cameras, canvases, hero cards, action buttons, progress bars, winding road tracks, and level nodes.
+
+#### 20. [`GameplayUIBuilder.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Editor/GameplayUIBuilder.cs)
+* **Responsibility:** Automated construction tool for `Gameplay.unity`. Accessible via `Tools/Rebuild Gameplay UI`. Builds header, status row, board frame, bottom controls, settings modal, and victory popups.
 
 ---
 
-## 7. Reconstructed Gameplay Canvas Structure (`Gameplay.unity`)
+## 7. Reconstructed Meta UI Structures
 
+### Main Menu (`MainMenu.unity`)
 ```text
-HUD (Canvas: Screen Space - Overlay, Scaler: 1080×1920, Match 0.5)
- └── Safe Area (SafeAreaFitter: Dynamic Mobile Inset)
-      │
-      ├── Background (Color: #F4F7FC, Raycast Target: False)
-      │
-      ├── Header (Anchored Top: 0..1 x 1, Height: 130)
-      │    ├── BackButton (Circular 96×96, button_circle + icon_back.png, Navy #17233D)
-      │    ├── TitleGroup (Centered 560×110)
-      │    │    ├── Title ("Tap Away Cars", 44pt Bold, Navy #17233D)
-      │    │    └── Level Text ("Level 23", 26pt Regular, Slate Gray #66758F)
-      │    └── SettingsButton (Circular 96×96, button_circle + icon_settings.png, Navy #17233D)
-      │
-      ├── StatusRow (Anchored Below Header: Y = -165, Height: 80)
-      │    ├── CarCounterPill (210×74, badge_pill.png)
-      │    │    ├── CarIcon (icon_car_badge.png, Navy #17233D)
-      │    │    └── Cars Remaining (TextMeshPro "42", 32pt Bold Navy #17233D, Live)
-      │    ├── Lives (230×74, HorizontalLayoutGroup, Spacing 16)
-      │    │    ├── Heart 1 (54×54, heart_full.png)
-      │    │    ├── Heart 2 (54×54, heart_full.png)
-      │    │    └── Heart 3 (54×54, heart_full.png)
-      │    └── DifficultyPill (210×74, badge_pill.png)
-      │         └── Difficulty Badge (TextMeshPro "Normal", 28pt Bold Navy #17233D, Live)
-      │
-      ├── BottomControls (Anchored Bottom: Y = +48, Height: 200)
-      │    ├── Hint Button (Circular 156×156, button_circle.png)
-      │    │    ├── Icon (icon_hint.png, Navy #17233D)
-      │    │    ├── Label ("Hint", 22pt Bold Navy #17233D)
-      │    │    └── CountBadge (46×46 Pill Blue #2F80ED at Top-Right)
-      │    │         └── Hint Count ("2", 24pt Bold White, Live)
-      │    └── Undo Button (Circular 156×156, button_circle.png)
-      │         ├── Icon (icon_undo.png, Navy #17233D)
-      │         └── Label ("Undo", 22pt Bold Navy #17233D)
-      │
-      └── Result Popup (Modal Overlay for Victory / Game Over)
+Canvas (Screen Space - Camera, Scaler: 1080×1920)
+ └── Safe Area (SafeAreaFitter)
+      ├── Background (#F4F7FC)
+      ├── Header
+      │    └── SettingsButton (Circular 96×96, #FFFFFF + icon_settings.png)
+      ├── Hero Card (620×480, card_board_bg.png)
+      │    ├── Car Icon (car_blue.png, 160×240)
+      │    ├── Title ("TAP AWAY CARS", 48pt Bold Navy #17233D)
+      │    └── Subtitle ("Tap the cars in the right order\nto clear the traffic maze!", 24pt Gray)
+      ├── Action Group (Y = -90)
+      │    ├── Play/Continue Button (520×100 Pill, Blue #2F80ED, "CONTINUE (LEVEL 7)")
+      │    └── Level Map Button (520×90 Pill, Slate #E2E8F0, "LEVEL MAP")
+      ├── ProgressCard (620×150, card_board_bg.png, Bottom)
+      │    ├── Progress Level ("LEVEL 7 OF 23", Navy #17233D)
+      │    ├── Progress Stars ("18 / 69 STARS", Gold #F2C94C)
+      │    └── ProgressBar (BarBg + BarFill Horizontal)
+      └── Settings Modal (Overlay with toggles + Reset Progress subdialog)
+```
+
+### Level Map (`LevelMap.unity`)
+```text
+Canvas (Screen Space - Camera, Scaler: 1080×1920)
+ └── Safe Area (SafeAreaFitter)
+      ├── Background (#F4F7FC)
+      ├── Header (Y = -20, Height: 130)
+      │    ├── BackButton (Circular 96×96, #FFFFFF + icon_back.png)
+      │    ├── TitleGroup ("LEVEL MAP", Subtitle: "Follow the road. Clear the traffic.")
+      │    └── SettingsButton (Circular 96×96, #FFFFFF + icon_settings.png)
+      ├── Map Scroll View (Clamped vertical ScrollRect)
+      │    └── Viewport (RectMask2D)
+      │         └── Road Content (Height: ~4700px)
+      │              ├── Road Tracks (Connected asphalt segments)
+      │              └── Level Nodes 1..23 (Winding sine pattern)
+      │                   ├── Button (Circular 146×146)
+      │                   ├── Level Number ("1", 34pt Bold)
+      │                   ├── Stars (3× gold star rating sprites)
+      │                   ├── Car Marker (Active on player's current level)
+      │                   └── Status Badge ("CURRENT" / "LOCKED")
+      └── Settings Modal (Overlay with toggles + Reset Progress subdialog)
 ```
 
 ---
@@ -240,23 +266,28 @@ HUD (Canvas: Screen Space - Overlay, Scaler: 1080×1920, Match 0.5)
 │ 5. Upside-down EXIT signs on bottom   │ GateRotation flipped text 180 degrees.                      │ FIXED ✅   │
 │                                       │ Signs now remain upright and readable across all borders.   │            │
 ├───────────────────────────────────────┼─────────────────────────────────────────────────────────────┼────────────┤
-│ 6. Disorganized Canvas UI layout      │ Prototype UI lacked structured responsive groups.           │ FIXED ✅   │
-│                                       │ Reconstructed Header, StatusRow, and BottomControls.        │            │
+│ 6. Display 1: No cameras rendering    │ MainMenu and LevelMap lacked Camera GameObjects in scenes.  │ FIXED ✅   │
+│                                       │ Added dedicated Main Camera with Solid Color #F4F7FC.       │            │
+├───────────────────────────────────────┼─────────────────────────────────────────────────────────────┼────────────┤
+│ 7. Visual mismatch across screens     │ MainMenu & LevelMap used procedural gray boxes.             │ FIXED ✅   │
+│                                       │ Redesigned into unified, polished mobile design system.     │            │
+├───────────────────────────────────────┼─────────────────────────────────────────────────────────────┼────────────┤
+│ 8. Missing star font glyphs (\u2605)  │ Default LiberationSans SDF lacked unicode star glyph.       │ FIXED ✅   │
+│                                       │ Replaced with vector-sharp star_full and star_empty sprites.│            │
 └───────────────────────────────────────┴─────────────────────────────────────────────────────────────┴────────────┘
 ```
 
 ---
 
-## 9. Current Build & Verification Status
+## 9. Verification & Quality Assurance
 
 * **Compiler Diagnostics:** Checked via Unity MCP — **0 active errors, 0 active warnings**.
-* **Play Mode State:** Full game loop verified:
-  * Cars navigate through open corridors toward perimeter exits.
-  * Invalid taps decrement player hearts and trigger red collision feedback.
-  * Undo restores previous cars and decrements cleared count.
-  * Hint highlights immediate solvable cars.
-  * Victory popup appears upon clearing all cars with 1..3 stars recorded to player save data.
-* **Touch Input:** All background images and labels have `raycastTarget = false`, allowing taps to reach 2D car colliders without obstruction.
+* **Play Mode Loop:** Full cross-scene navigation flow verified:
+  * `MainMenu` -> `LevelMap` -> `Gameplay` -> Victory / Next Level / Back to `MainMenu` or `LevelMap`.
+  * Settings modal opens, toggles sound/music/haptics, and resets progress with confirmation dialog.
+  * Level Map auto-scrolls and highlights the player's active level with car marker.
+  * Gameplay HUD, 3-heart deduction on collision, undo stack, hint highlighter, and exit animations function flawlessly.
+* **EditMode Unit Tests:** 100% test pass rate covering `MazeGeneratorTests`, `PathValidatorTests`, and `PlayerProgressTests`.
 
 ---
 
