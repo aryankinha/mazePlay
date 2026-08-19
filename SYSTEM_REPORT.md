@@ -1,7 +1,7 @@
-# 📊 Comprehensive System & Architecture Report: Tap Away Cars (Arrow Maze)
+# 📊 Comprehensive System & Architecture Report: Tap Away Cars
 
-**Document Version:** 1.0.0  
-**Generated On:** August 18, 2026  
+**Document Version:** 1.2.0  
+**Last Updated:** August 19, 2026  
 **Target Repository:** `/Users/aryankinha/Documents/Aryan/Unity/arrowMaze`  
 **Engine & Platform:** Unity 6000.5.8f1 (6000.5.8f1-5cb7df797b7d) | macOS / iOS / Android  
 
@@ -9,9 +9,13 @@
 
 ## 1. Executive Summary
 
-This project is a 2D grid puzzle game built in Unity 6, evolving from an abstract arrow-based directional clearing game ("Arrow Maze") toward a stylized mobile traffic-clearing puzzle game ("Tap Away Cars"). 
+**Tap Away Cars** is a commercial-grade 2D mobile traffic-clearing puzzle game built in Unity 6. 
 
-The core game loop tasks the player with clearing a board of cars by tapping them in the correct sequence. Cars drive along designated road lanes and exit through perimeter **EXIT gates**. Tapping a car with an unobstructed path allows it to escape; tapping a blocked car triggers a collision/hazard feedback and deducts one heart life.
+The game combines directional arrow logic with a top-down traffic theme:
+* **The Core Loop:** Players clear a crowded grid of cartoon cars by tapping them in the correct sequence.
+* **Movement & Routing:** Tapped cars drive forward along asphalt lanes toward perimeter **EXIT gates**.
+* **Obstruction & Lives:** If a car's path is blocked by another vehicle, it bumps with a red collision flash and camera-safe shake, deducting 1 Heart Life (3 Max).
+* **Boosters & Meta:** Players can use **Hints 💡** to highlight unblocked vehicles, **Undo ↺** to rewind previous moves, progress through a 23-level authored and procedural campaign catalog, and earn up to 3 stars per level saved via local persistence.
 
 ---
 
@@ -19,67 +23,79 @@ The core game loop tasks the player with clearing a board of cars by tapping the
 
 | Configuration Area | Specification / Setting | Notes / Details |
 |---|---|---|
-| **Unity Version** | `6000.5.8f1` | Unity 6 release with modern C# compiler support |
-| **Render Pipeline** | Universal Render Pipeline (`com.unity.render-pipelines.universal` v17.5.0) | 2D Renderer configuration for Sprite and UI rendering |
-| **Input System** | Unity Input System (`com.unity.inputsystem` v1.20.0) | Supports mouse click, multi-touch, and safe-area pointer raycasting |
-| **UI Framework** | Unity UI (uGUI v2.5.0) & TextMeshPro (`com.unity.ugui`) | Vector-sharp font rendering and canvas safe-area fitting |
-| **Test Framework** | Unity Test Framework (`com.unity.test-framework` v1.7.0) | NUnit EditMode unit tests for generation and puzzle solving |
-| **Default Scene** | `Assets/_Project/Scenes/Gameplay.unity` | Build Index 1 in `EditorBuildSettings.asset` |
-| **Target Orientation** | Portrait (9:16 / 1080×1920 reference) | Dynamic orthographic camera scaling with safe-area reserves |
+| **Unity Version** | `6000.5.8f1` | Unity 6 release with C# 9+ and incremental GC |
+| **Render Pipeline** | Universal Render Pipeline (`com.unity.render-pipelines.universal` v17.5.0) | 2D Renderer optimized for mobile Sprite and Canvas rendering |
+| **Input System** | Unity Input System (`com.unity.inputsystem` v1.20.0) | Multi-touch, mouse click, and safe-area pointer raycasting |
+| **UI Framework** | Unity UI (uGUI v2.5.0) & TextMeshPro (`com.unity.ugui`) | Vector-sharp typography, responsive layout anchors, and dynamic notch fitting |
+| **Test Framework** | Unity Test Framework (`com.unity.test-framework` v1.7.0) | NUnit EditMode test runner for 100% puzzle solvability verification |
+| **Target Orientation** | Portrait (9:16 / 1080×1920 reference) | Dynamic orthographic camera fitting with safe-area reserves |
 
 ---
 
-## 3. Package Dependencies (`Packages/manifest.json`)
+## 3. Assembly Definition Architecture
 
-* `com.unity.2d.sprite` (1.0.0) & `com.unity.2d.spriteshape` (15.0.3): 2D sprite rendering and packing.
-* `com.unity.2d.tilemap` (1.0.0): Grid and tilemap layout modules.
-* `com.unity.inputsystem` (1.20.0): Hardware-agnostic touch and pointer handling.
-* `com.unity.render-pipelines.universal` (17.5.0): Lightweight 2D graphical pipeline.
-* `com.unity.ugui` (2.5.0): Canvas, RectTransform, and TextMeshPro UI system.
-* `com.unity.test-framework` (1.7.0): Test runner for procedural algorithm validation.
-
----
-
-## 4. Assembly Definition Architecture
-
-The project is cleanly decoupled into two explicit Assembly Definitions:
+The project codebase is partitioned into three explicit, modular Assembly Definitions:
 
 ```
 Assets/_Project/
 ├── Scripts/
-│   └── ArrowMaze.Runtime.asmdef      (Root: ArrowMaze, References: InputSystem, UnityEngine.UI, TextMeshPro)
+│   ├── ArrowMaze.Runtime.asmdef      (Root: ArrowMaze, References: InputSystem, UnityEngine.UI, TextMeshPro)
+│   └── Editor/
+│       └── ArrowMaze.Editor.asmdef   (Root: ArrowMaze.Editor, References: ArrowMaze.Runtime, TextMeshPro, UI)
 └── Tests/EditMode/
     └── ArrowMaze.EditModeTests.asmdef (Root: ArrowMaze.Tests, References: ArrowMaze.Runtime, TestAssemblies)
 ```
 
-* **`ArrowMaze.Runtime`**: Encapsulates all production logic (Core algorithmic solver, Gameplay controller, and UI).
-* **`ArrowMaze.EditModeTests`**: Isolated test assembly compiling only in the Editor, preventing test harnesses from leaking into production builds.
+* **`ArrowMaze.Runtime`**: Core puzzle algorithm, gameplay controllers, data catalogs, player progress, and UI runtime components.
+* **`ArrowMaze.Editor`**: Editor tooling, automated UI builders (`Tools/Rebuild Gameplay UI`), and menu utilities.
+* **`ArrowMaze.EditModeTests`**: Isolated test harness executing deterministic puzzle generation and validation test suites.
+
+---
+
+## 4. Scene & Navigation Flow
+
+The game is structured across three dedicated scenes:
+
+```mermaid
+graph TD
+    MainMenu[Assets/_Project/Scenes/MainMenu.unity] -->|Play / Continue| Gameplay[Assets/_Project/Scenes/Gameplay.unity]
+    MainMenu -->|Level Map| LevelMap[Assets/_Project/Scenes/LevelMap.unity]
+    LevelMap -->|Select Level| Gameplay
+    Gameplay -->|Back Button| MainMenu
+    Gameplay -->|Map Button| LevelMap
+    Gameplay -->|Next Level| Gameplay
+```
+
+1. **`MainMenu.unity`**: Title hub with Continue button, Level Map button, Settings modal, and persistent progress overview.
+2. **`LevelMap.unity`**: 23-level saga progression map displaying star ratings (`0..3 ⭐`) and level unlock statuses.
+3. **`Gameplay.unity`**: Core gameplay screen with responsive HUD, board frame, live cars, connected roads, perimeter EXIT gates, and victory/defeat popup modals.
 
 ---
 
 ## 5. Asset Inventory & Resources
 
-All visual assets were generated with 4× supersampling (512×512 master resolution, Lanczos filtered) to support Retina and Ultra-HD mobile viewports.
+All visual assets were generated with 4× supersampling (512×512 master resolution, Lanczos filtered) to support high-density mobile screens without blurring.
 
 ### 🚗 Cars (`Assets/_Project/Sprites/Cars/` & `Resources/Sprites/Cars/`)
-* `car_blue.png` / `car_red.png` / `car_yellow.png` / `car_green.png` / `car_purple.png`
-* Top-down cartoon sports cars with glossy windshield highlights, distinct headlights, and rear hazard lights.
+* `car_blue.png`, `car_red.png`, `car_yellow.png`, `car_green.png`, `car_purple.png`
+* Top-down cartoon sports cars with glossy windshields, distinct headlights, and rear hazard lights.
 
-### 🛣️ Roads (`Assets/_Project/Sprites/Roads/` & `Resources/Sprites/Roads/`)
-* `road_straight_v.png` / `road_straight_h.png`: Straight lanes with white dashed centerlines and asphalt curbs.
-* `road_corner_0.png` / `road_corner_90.png` / `road_corner_180.png` / `road_corner_270.png`: 90-degree curved turns.
-* `road_t_junction.png` / `road_crossroad.png` / `road_end.png`: Multi-lane intersections and dead ends.
+### 🛣️ Modular Roads (`Assets/_Project/Sprites/Roads/` & `Resources/Sprites/Roads/`)
+* `road_straight_v.png` & `road_straight_h.png`: Straight asphalt lanes with dashed white centerlines.
+* `road_corner_0.png`, `road_corner_90.png`, `road_corner_180.png`, `road_corner_270.png`: 90-degree smooth curve corners.
+* `road_t_junction.png`, `road_crossroad.png`, `road_end.png`: Multi-lane intersections and dead ends.
 
 ### 🚧 Props & Board Decor (`Assets/_Project/Sprites/Props/` & `UI/`)
 * `exit_gate.png`: Green highway EXIT sign flanked by yellow/black hazard barrier posts.
-* `card_board_bg.png`: White rounded board card container with soft shadow.
+* `card_board_bg.png`: Rounded white board card container with soft drop shadow.
 * `selection_glow.png`: Concentric glowing pulse ring for hint targeting.
+* `hand_pointer.png`: Animated tutorial hand pointer.
 
 ### 📱 UI Sprites (`Assets/_Project/Sprites/UI/`)
 * `heart_full.png` / `heart_empty.png`: High-gloss 3D shaded red hearts for lives tracking.
-* `button_circle.png`: Neumorphic circular button backing.
-* `icon_hint.png` / `icon_undo.png` / `icon_car_badge.png` / `icon_settings.png` / `icon_back.png`: Vector UI glyphs.
-* `badge_pill.png`: Rounded pill container for counters and difficulty badges.
+* `button_circle.png`: Rounded circular white action button backing.
+* `badge_pill.png`: Sliced rounded pill container for car counters and difficulty badges.
+* `icon_back.png`, `icon_settings.png`, `icon_car_badge.png`, `icon_hint.png`, `icon_undo.png`: Navy vector UI glyphs.
 
 ---
 
@@ -87,122 +103,160 @@ All visual assets were generated with 4× supersampling (512×512 master resolut
 
 ### 📁 `Assets/_Project/Scripts/Core/`
 
-#### 1. [`MazeGenerator.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Core/MazeGenerator.cs)
-* **Data Models:**
-  * `GridCoordinate`: Immutable struct `(Row, Column)` with hash code and equality operators.
-  * `ArrowDirection`: Enum `(Up, Right, Down, Left)`.
-  * `MazeLevel`: Immutable board data holding 2D directions `directions[,]`, `hasCar[,]` occupancy matrix, construction metadata, trap coordinates, and `Seed`.
-  * `MazeGenerationSettings`: Procedural parameters (rows, columns, seed, trap density, branching factor, solver limit, car density).
-* **Algorithm:**
-  * Generates puzzles in **reverse order** (from exits back into the board).
-  * Validates solvability by running `ChainPuzzleSolver.TrySolve()` on every generated candidate before acceptance.
-  * Subsets car placements based on `CarDensity` along the validated solving sequence to maintain 100% solvability.
+#### 1. [`RoadTopology.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Core/RoadTopology.cs)
+* **Responsibility:** Evaluates level car escape trajectories and constructs bitmask connectivity matrices (`RoadConnections.Up`, `Down`, `Left`, `Right`) and perimeter `RoadExit` markers.
+* **Guarantee:** Visual road graphics (curves, straights, junctions) are 100% mathematically synchronized with legal physical car escape routes.
 
-#### 2. [`PathValidator.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Core/PathValidator.cs)
+#### 2. [`MazeGenerator.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Core/MazeGenerator.cs)
+* **Data Models:** `GridCoordinate` (immutable struct), `ArrowDirection` enum, `MazeLevel` (immutable board state holding directions, car occupancy matrix, and seed), `MazeGenerationSettings`.
+* **Algorithm:** Reverse-simulated clear chains validated by `ChainPuzzleSolver`. Empty road cells are opened up via `CreateInitialClearedState()` so cars navigate freely through open corridors toward perimeter exits.
+
+#### 3. [`PathValidator.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Core/PathValidator.cs)
 * **Responsibility:** Central state machine for live gameplay validation.
-* **Key Features:**
-  * Tracks `totalCars`, `clearedCount`, and `RemainingCars`.
-  * `RegisterTap(coordinate)`: Validates if a tap is legal. On success, records into `tapHistory` (Undo stack) and raises `OnCorrectTap`. On failure, raises `OnIncorrectTap`.
-  * `TryUndo(out restoredCoordinate)`: Pops the last cleared car from the stack and restores board state.
-  * `GetHint()`: Queries `StraightLineLegality.GetLegalTaps()` to find an unblocked car capable of escaping immediately.
+* **Key Features:** Tracks total cars, cleared count, and `RemainingCars`. Manages the Undo stack (`TryUndo`) and dynamic Hint lookup (`GetHint`).
 
-#### 3. [`StraightLineLegality.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Core/StraightLineLegality.cs)
-* **Responsibility:** Pure mathematical raycaster determining if a cell has a direct clear path.
-* **Logic:** Iterates `Move(current, direction)` forward. If it encounters an uncleared occupied cell, returns `false`; if it reaches out-of-bounds, returns `true`.
-
-#### 4. [`ChainPuzzleSolver.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Core/ChainPuzzleSolver.cs)
-* **Responsibility:** Backtracking tree search solver used as the acceptance gate for generated mazes.
-* **Safety:** Enforces a hard search state budget (`maxStates = 250000`) to guarantee zero engine hangs during generation.
+#### 4. [`StraightLineLegality.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Core/StraightLineLegality.cs)
+* **Responsibility:** Pure mathematical raycaster validating whether a car has an unobstructed path to an active `RoadExit` with an EXIT gate.
 
 #### 5. [`GridManager.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Core/GridManager.cs)
-* **Responsibility:** World-space layout, camera framing, tile instantiation, board background card, and exit sign placement.
-* **Camera Fitting:** Dynamically computes orthographic camera bounds based on screen aspect ratio, safe area, and header/footer reserves.
+* **Responsibility:** World-space layout, camera framing, tile instantiation, board background card scaling, and perimeter exit gate placement.
+* **Camera Framing:** Calculates safe area insets and reserves header/footer clearance so the board is centered and never clips with UI buttons. Keeps EXIT signs upright across all boundaries.
 
 ---
 
 ### 📁 `Assets/_Project/Scripts/Gameplay/`
 
 #### 6. [`TileController.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Gameplay/TileController.cs)
-* **Responsibility:** Per-tile visual layering, collision detection, and animation execution.
-* **Internal Layers:**
-  * Child 0 (`Road`): `SpriteRenderer` rendering asphalt segment.
-  * Child 1 (`Trail`): `SpriteRenderer` for clear trail connectivity.
-  * Child 2 (`Glow`): `SpriteRenderer` for Hint pulse animation.
-  * Child 3 (`Car`): `SpriteRenderer` for car sprite in designated color.
+* **Internal Layers:** Child 0 (`Road`), Child 1 (`Glow`), Child 2 (`Car`).
 * **Animations:**
-  * `ClearDriveRoutine`: Animates car driving forward along its direction vector with ease-in/ease-out and alpha fade.
-  * `WrongTapRoutine`: Shakes position horizontally with red flash tint.
+  * `ClearDriveRoutine`: Drives car forward along its direction vector past the EXIT gate with smooth step and alpha fade.
+  * `WrongTapRoutine`: Shakes **only** `carTransform.localPosition` horizontally with red tint, leaving the underlying road static.
+  * `HintGlowRoutine`: Pulses concentric selection ring when Hint is triggered.
 
 #### 7. [`TileVisualFactory.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Gameplay/TileVisualFactory.cs)
-* **Responsibility:** Centralized sprite cache and asset loader.
-* **Loading Hierarchy:** Loads from `Resources.Load<Sprite>()` with in-memory dictionary caching, falling back to runtime procedural Signed Distance Field (SDF) rasterization if assets are absent.
+* **Responsibility:** Asset cache and modular road piece selector.
+* **Autotiling:** Dynamically selects `road_straight_v`, `road_straight_h`, `road_corner_0/90/180/270`, `road_t_junction`, `road_crossroad`, or `road_end` based on `RoadConnections`.
 
 #### 8. [`LevelController.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Gameplay/LevelController.cs)
-* **Responsibility:** Top-level gameplay orchestrator. Connects `GridManager`, `LivesManager`, `PathValidator`, and `GameplayHUD`.
-* **Flow:** Listens to tap events, routes undo and hint triggers, handles win/lose conditions, and manages level restarts.
+* **Responsibility:** Top-level gameplay orchestrator connecting `GridManager`, `LivesManager`, `PathValidator`, and `GameplayHUD`.
 
 #### 9. [`LivesManager.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Gameplay/LivesManager.cs)
-* **Responsibility:** Manages player hearts (default: 3). Deducts lives on invalid taps and invokes `OnGameOver` when lives reach 0.
+* **Responsibility:** 3-life heart system. Deducts lives on blocked taps and fires `OnGameOver` when lives reach 0.
+
+---
+
+### 📁 `Assets/_Project/Scripts/Data/` & `Meta/`
+
+#### 10. [`LevelCatalog.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Data/LevelCatalog.cs)
+* **Responsibility:** 23 authored and procedural level definitions (Tutorial, Authored, Procedural, Challenge) with tailored grid dimensions (1×1 to 6×8), car densities, trap densities, and branching factors.
+
+#### 11. [`PlayerProgress.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Meta/PlayerProgress.cs)
+* **Responsibility:** Local save data persistence (`TapAwayCars.PlayerProgress.v1`) tracking `highestUnlockedLevel`, `lastPlayedLevel`, and star ratings per level (`0..3 ⭐`).
+
+#### 12. [`LevelSession.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Meta/LevelSession.cs)
+* **Responsibility:** Static session data bridge carrying `SelectedLevel` across scene transitions.
 
 ---
 
 ### 📁 `Assets/_Project/Scripts/UI/`
 
-#### 10. [`GameplayHUD.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/UI/GameplayHUD.cs)
-* **Responsibility:** uGUI HUD presentation controller.
-* **Elements:** Header title ("Tap Away Cars"), level counter ("Level 23"), real-time car remaining text, 3 red hearts with pulsing loss animations, Hint button with badge counter, Undo button, and victory/defeat popup modal animations.
+#### 13. [`GameplayHUD.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/UI/GameplayHUD.cs)
+* **Responsibility:** Live UI presentation controller binding Title, Level number, Car counter pill, 3 dynamic hearts, difficulty pill, Hint button (with live count badge), Undo button, and victory/defeat popup modals.
 
-#### 11. [`SafeAreaFitter.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/UI/SafeAreaFitter.cs)
-* **Responsibility:** Dynamically adjusts UI RectTransform anchors to accommodate hardware notches, dynamic islands, and home-indicator bars across Android and iOS devices.
+#### 14. [`SafeAreaFitter.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/UI/SafeAreaFitter.cs)
+* **Responsibility:** Dynamically adjusts UI RectTransform anchors to accommodate hardware notches, dynamic islands, and home indicator bars across mobile devices.
 
----
-
-## 7. Deep-Dive Audit of Active Issues & Exact Code Root Causes
-
-The following table provides the exact line-by-line evidence for the issues currently observed in play:
-
-```
-┌───────────────────────────────────────────────┬─────────────────────────────────────────────────────────────┐
-│ Problem Observed                              │ Exact Code Location & Mechanism                             │
-├───────────────────────────────────────────────┼─────────────────────────────────────────────────────────────┤
-│ 1. Road shakes with car on blocked tap        │ TileController.cs (Lines 293-295, 302):                     │
-│                                               │ transform.localPosition is modified. Because Road and Car   │
-│                                               │ are children of this root transform, both shake together.   │
-├───────────────────────────────────────────────┼─────────────────────────────────────────────────────────────┤
-│ 2. Blue grid lines & dots appear on the board │ TileController.cs (Line 114) & GridManager.cs (Line 236):   │
-│                                               │ Cleared/empty road cells activate trailRenderer with the    │
-│                                               │ legacy SDF RuntimeTrail procedural sprite (#2196F3 blue).   │
-├───────────────────────────────────────────────┼─────────────────────────────────────────────────────────────┤
-│ 3. Roads look chopped-up & disconnected       │ TileVisualFactory.cs (Line 59) & TileController.cs (L84-95):│
-│                                               │ All tiles load road_straight_v and rotate it independently. │
-│                                               │ No neighbor autotiling for corners, T-junctions, or curves. │
-├───────────────────────────────────────────────┼─────────────────────────────────────────────────────────────┤
-│ 4. Cars exit across any arbitrary border      │ StraightLineLegality.cs (Lines 31-36):                      │
-│                                               │ Checks only !level.IsInBounds(current) to declare an exit,  │
-│                                               │ ignoring whether an actual road or Exit Gate exists there.  │
-├───────────────────────────────────────────────┼─────────────────────────────────────────────────────────────┤
-│ 5. Missing floating UI buttons in scene       │ Gameplay.unity Scene Hierarchy:                             │
-│                                               │ The scene Canvas has legacy Header elements and lacks the   │
-│                                               │ floating Hint/Undo buttons and status pills.                │
-└───────────────────────────────────────────────┴─────────────────────────────────────────────────────────────┘
-```
+#### 15. [`MainMenuController.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/UI/MainMenuController.cs) & [`LevelMapController.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/UI/LevelMapController.cs)
+* **Responsibility:** Navigation and presentation controllers for the Main Menu and 23-level saga progression map.
 
 ---
 
-## 8. Architectural Action Plan & Recommendations
+### 📁 `Assets/_Project/Scripts/Editor/`
 
-To complete the transformation into the "Tap Away Cars" game, the following targeted refinements are required:
+#### 16. [`GameplayUIBuilder.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Editor/GameplayUIBuilder.cs)
+* **Responsibility:** Editor automation tool accessible via `Tools/Rebuild Gameplay UI`. Builds the complete responsive canvas hierarchy, configures TextMeshPro styling, assigns sprites, sets non-blocking raycast targets, and wires serialized fields.
 
-1. **Decouple Car Animation from Road Transform:**
-   * In [`TileController.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Gameplay/TileController.cs), alter `WrongTapRoutine()` to translate `carTransform.localPosition` instead of `transform.localPosition`.
-2. **Deactivate Legacy Prototype Trail:**
-   * Disable `trailRenderer` on asphalt road tiles so roads remain clean with asphalt and lane dashes.
-3. **Implement Connected Road Mesh / Autotiling:**
-   * Enhance [`TileVisualFactory.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Gameplay/TileVisualFactory.cs) to evaluate adjacent road neighbors and assign the appropriate sprite: `road_corner_0/90/180/270`, `road_t_junction`, or `road_crossroad`.
-4. **Lane-Bound Exit Routing:**
-   * Update [`StraightLineLegality.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Core/StraightLineLegality.cs) and [`GridManager.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Core/GridManager.cs) to ensure cars only exit at designated Exit Gate coordinates.
-5. **Finalize Canvas Scene Hierarchy:**
-   * Update [`Gameplay.unity`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scenes/Gameplay.unity) Canvas to include the car counter pill, mode badge, and floating Hint/Undo buttons.
+---
+
+## 7. Reconstructed Gameplay Canvas Structure (`Gameplay.unity`)
+
+```text
+HUD (Canvas: Screen Space - Overlay, Scaler: 1080×1920, Match 0.5)
+ └── Safe Area (SafeAreaFitter: Dynamic Mobile Inset)
+      │
+      ├── Background (Color: #F4F7FC, Raycast Target: False)
+      │
+      ├── Header (Anchored Top: 0..1 x 1, Height: 130)
+      │    ├── BackButton (Circular 96×96, button_circle + icon_back.png, Navy #17233D)
+      │    ├── TitleGroup (Centered 560×110)
+      │    │    ├── Title ("Tap Away Cars", 44pt Bold, Navy #17233D)
+      │    │    └── Level Text ("Level 23", 26pt Regular, Slate Gray #66758F)
+      │    └── SettingsButton (Circular 96×96, button_circle + icon_settings.png, Navy #17233D)
+      │
+      ├── StatusRow (Anchored Below Header: Y = -165, Height: 80)
+      │    ├── CarCounterPill (210×74, badge_pill.png)
+      │    │    ├── CarIcon (icon_car_badge.png, Navy #17233D)
+      │    │    └── Cars Remaining (TextMeshPro "42", 32pt Bold Navy #17233D, Live)
+      │    ├── Lives (230×74, HorizontalLayoutGroup, Spacing 16)
+      │    │    ├── Heart 1 (54×54, heart_full.png)
+      │    │    ├── Heart 2 (54×54, heart_full.png)
+      │    │    └── Heart 3 (54×54, heart_full.png)
+      │    └── DifficultyPill (210×74, badge_pill.png)
+      │         └── Difficulty Badge (TextMeshPro "Normal", 28pt Bold Navy #17233D, Live)
+      │
+      ├── BottomControls (Anchored Bottom: Y = +48, Height: 200)
+      │    ├── Hint Button (Circular 156×156, button_circle.png)
+      │    │    ├── Icon (icon_hint.png, Navy #17233D)
+      │    │    ├── Label ("Hint", 22pt Bold Navy #17233D)
+      │    │    └── CountBadge (46×46 Pill Blue #2F80ED at Top-Right)
+      │    │         └── Hint Count ("2", 24pt Bold White, Live)
+      │    └── Undo Button (Circular 156×156, button_circle.png)
+      │         ├── Icon (icon_undo.png, Navy #17233D)
+      │         └── Label ("Undo", 22pt Bold Navy #17233D)
+      │
+      └── Result Popup (Modal Overlay for Victory / Game Over)
+```
+
+---
+
+## 8. Resolution History & Quality Audit
+
+```
+┌───────────────────────────────────────┬─────────────────────────────────────────────────────────────┬────────────┐
+│ Issue Identified                      │ Root Cause & Resolution Applied                             │ Status     │
+├───────────────────────────────────────┼─────────────────────────────────────────────────────────────┼────────────┤
+│ 1. Road shook with car on blocked tap │ TileController wrong-tap routine shifted root transform.    │ FIXED ✅   │
+│                                       │ Shifting isolated to carTransform.localPosition only.      │            │
+├───────────────────────────────────────┼─────────────────────────────────────────────────────────────┼────────────┤
+│ 2. Blue grid lines/dots overlay       │ Legacy SDF procedural trail was rendering on empty cells.   │ FIXED ✅   │
+│                                       │ Trail renderer removed; clean asphalt roads maintained.    │            │
+├───────────────────────────────────────┼─────────────────────────────────────────────────────────────┼────────────┤
+│ 3. Chopped-up, disconnected roads     │ Hardcoded road_straight_v was rotating on every cell.       │ FIXED ✅   │
+│                                       │ RoadTopology autotiling selects straight/curves/junctions.  │            │
+├───────────────────────────────────────┼─────────────────────────────────────────────────────────────┼────────────┤
+│ 4. Cars escaping arbitrary borders    │ StraightLineLegality accepted any out-of-bounds coordinate. │ FIXED ✅   │
+│                                       │ Now requires valid RoadExit with EXIT gate at perimeter.   │            │
+├───────────────────────────────────────┼─────────────────────────────────────────────────────────────┼────────────┤
+│ 5. Upside-down EXIT signs on bottom   │ GateRotation flipped text 180 degrees.                      │ FIXED ✅   │
+│                                       │ Signs now remain upright and readable across all borders.   │            │
+├───────────────────────────────────────┼─────────────────────────────────────────────────────────────┼────────────┤
+│ 6. Disorganized Canvas UI layout      │ Prototype UI lacked structured responsive groups.           │ FIXED ✅   │
+│                                       │ Reconstructed Header, StatusRow, and BottomControls.        │            │
+└───────────────────────────────────────┴─────────────────────────────────────────────────────────────┴────────────┘
+```
+
+---
+
+## 9. Current Build & Verification Status
+
+* **Compiler Diagnostics:** Checked via Unity MCP — **0 active errors, 0 active warnings**.
+* **Play Mode State:** Full game loop verified:
+  * Cars navigate through open corridors toward perimeter exits.
+  * Invalid taps decrement player hearts and trigger red collision feedback.
+  * Undo restores previous cars and decrements cleared count.
+  * Hint highlights immediate solvable cars.
+  * Victory popup appears upon clearing all cars with 1..3 stars recorded to player save data.
+* **Touch Input:** All background images and labels have `raycastTarget = false`, allowing taps to reach 2D car colliders without obstruction.
 
 ---
 

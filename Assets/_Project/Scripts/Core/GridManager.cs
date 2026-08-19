@@ -30,6 +30,8 @@ namespace ArrowMaze.Core
 
         private Transform tileContainer;
         private GameObject boardCardObject;
+        private GameObject gateContainer;
+        private Camera gameplayCamera;
         private MazeLevel currentLevel;
         private float cellSize = MinCellSize;
 
@@ -160,11 +162,12 @@ namespace ArrowMaze.Core
             sr.sprite = cardSprite;
             sr.sortingOrder = -2;
 
-            var boardW = level.Columns * cellSize + (cellSize * 0.40f);
-            var boardH = level.Rows * cellSize + (cellSize * 0.40f);
-            boardCardObject.transform.localScale = new Vector3(boardW / (cardSprite.rect.width / cardSprite.pixelsPerUnit),
-                                                              boardH / (cardSprite.rect.height / cardSprite.pixelsPerUnit),
-                                                              1f);
+            var boardW = level.Columns * cellSize + (cellSize * 0.90f);
+            var boardH = level.Rows * cellSize + (cellSize * 0.90f);
+            boardCardObject.transform.localScale = new Vector3(
+                boardW / (cardSprite.rect.width / cardSprite.pixelsPerUnit),
+                boardH / (cardSprite.rect.height / cardSprite.pixelsPerUnit),
+                1f);
         }
 
         private void SpawnExitGates(MazeLevel level, RoadTopology roadTopology)
@@ -175,8 +178,14 @@ namespace ArrowMaze.Core
                 return;
             }
 
-            var gateContainer = new GameObject("ExitGates");
+            if (gateContainer != null)
+            {
+                Destroy(gateContainer);
+            }
+
+            gateContainer = new GameObject("ExitGates");
             gateContainer.transform.SetParent(tileContainer, false);
+            gateContainer.transform.localPosition = Vector3.zero;
 
             for (var row = 0; row < level.Rows; row++)
             {
@@ -197,7 +206,7 @@ namespace ArrowMaze.Core
                         var sr = gateObj.AddComponent<SpriteRenderer>();
                         sr.sprite = gateSprite;
                         sr.sortingOrder = 6;
-                        gateObj.transform.localScale = Vector3.one * ScaleSpriteToWorldSize(gateSprite, cellSize * 0.42f);
+                        gateObj.transform.localScale = Vector3.one * ScaleSpriteToWorldSize(gateSprite, cellSize * 0.48f);
                     }
                 }
             }
@@ -214,6 +223,22 @@ namespace ArrowMaze.Core
             var x = (coordinate.Column - ((level.Columns - 1) * 0.5f)) * pitch;
             var y = (((level.Rows - 1) * 0.5f) - coordinate.Row) * pitch;
             return new Vector3(x, y, 0f);
+        }
+
+        private float CalculateExitTravelDistance(MazeLevel level, GridCoordinate coordinate)
+        {
+            var steps = 0;
+            var current = coordinate;
+            var direction = level.GetDirection(coordinate);
+            do
+            {
+                steps++;
+                current = StraightLineLegality.Move(current, direction);
+            }
+            while (level.IsInBounds(current));
+
+            // Continue past the gate so the car is fully outside the board before hiding.
+            return cellSize * (steps + 0.60f);
         }
 
         private void EnsureTileContainer()
@@ -234,7 +259,7 @@ namespace ArrowMaze.Core
             {
                 if (tile != null)
                 {
-                    tile.TapRequested -= HandleTileTapped;
+                    Destroy(tile.gameObject);
                 }
             }
 
@@ -245,11 +270,27 @@ namespace ArrowMaze.Core
                 Destroy(tileContainer.gameObject);
                 tileContainer = null;
             }
+
+            if (gateContainer != null)
+            {
+                Destroy(gateContainer);
+                gateContainer = null;
+            }
+
+            if (boardCardObject != null)
+            {
+                Destroy(boardCardObject);
+                boardCardObject = null;
+            }
         }
 
         private void FrameGridInCamera(MazeLevel level)
         {
-            var gameplayCamera = Camera.main;
+            if (gameplayCamera == null)
+            {
+                gameplayCamera = Camera.main;
+            }
+
             if (gameplayCamera == null || !gameplayCamera.orthographic)
             {
                 return;
@@ -315,10 +356,10 @@ namespace ArrowMaze.Core
         {
             switch (direction)
             {
-                case ArrowDirection.Up: return Vector3.up * (cellSize * 0.50f);
-                case ArrowDirection.Right: return Vector3.right * (cellSize * 0.50f);
-                case ArrowDirection.Down: return Vector3.down * (cellSize * 0.50f);
-                case ArrowDirection.Left: return Vector3.left * (cellSize * 0.50f);
+                case ArrowDirection.Up: return Vector3.up * (cellSize * 0.54f);
+                case ArrowDirection.Right: return Vector3.right * (cellSize * 0.54f);
+                case ArrowDirection.Down: return Vector3.down * (cellSize * 0.54f);
+                case ArrowDirection.Left: return Vector3.left * (cellSize * 0.54f);
                 default: throw new ArgumentOutOfRangeException(nameof(direction), direction, null);
             }
         }
@@ -328,9 +369,9 @@ namespace ArrowMaze.Core
             switch (direction)
             {
                 case ArrowDirection.Up: return 0f;
-                case ArrowDirection.Right: return -90f;
-                case ArrowDirection.Down: return 180f;
-                case ArrowDirection.Left: return 90f;
+                case ArrowDirection.Right: return 0f;
+                case ArrowDirection.Down: return 0f;
+                case ArrowDirection.Left: return 0f;
                 default: throw new ArgumentOutOfRangeException(nameof(direction), direction, null);
             }
         }

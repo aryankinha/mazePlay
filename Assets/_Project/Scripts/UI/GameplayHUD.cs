@@ -48,6 +48,7 @@ namespace ArrowMaze.UI
         private Coroutine popupRevealRoutine;
         private CanvasGroup popupCanvasGroup;
         private RectTransform popupCard;
+        private GameObject settingsRoot;
         private int displayedLives = -1;
         private int remainingHints = 2;
 
@@ -120,6 +121,16 @@ namespace ArrowMaze.UI
 
             if (popupNextButton != null) popupNextButton.onClick.AddListener(NextPressed);
             if (popupMapButton != null) popupMapButton.onClick.AddListener(MapPressed);
+
+            if (backButton != null)
+            {
+                backButton.onClick.AddListener(MapPressed);
+            }
+
+            if (settingsButton != null)
+            {
+                settingsButton.onClick.AddListener(SettingsPressed);
+            }
 
             if (undoButton != null)
             {
@@ -197,6 +208,85 @@ namespace ArrowMaze.UI
 
         private void NextPressed() => nextAction?.Invoke();
         private void MapPressed() => mapAction?.Invoke();
+
+        private void SettingsPressed()
+        {
+            EnsureSettingsPanel();
+            settingsRoot.SetActive(true);
+        }
+
+        private void EnsureSettingsPanel()
+        {
+            if (settingsRoot != null)
+            {
+                return;
+            }
+
+            settingsRoot = new GameObject("Settings Popup", typeof(RectTransform), typeof(Image));
+            settingsRoot.transform.SetParent(transform, false);
+            var rootRect = settingsRoot.GetComponent<RectTransform>();
+            rootRect.anchorMin = Vector2.zero;
+            rootRect.anchorMax = Vector2.one;
+            rootRect.offsetMin = Vector2.zero;
+            rootRect.offsetMax = Vector2.zero;
+            settingsRoot.GetComponent<Image>().color = new Color(0.04f, 0.08f, 0.16f, 0.62f);
+
+            var card = new GameObject("Settings Card", typeof(RectTransform), typeof(Image));
+            card.transform.SetParent(settingsRoot.transform, false);
+            var cardRect = card.GetComponent<RectTransform>();
+            cardRect.anchorMin = cardRect.anchorMax = new Vector2(.5f, .5f);
+            cardRect.sizeDelta = new Vector2(620f, 430f);
+            card.GetComponent<Image>().color = new Color32(28, 50, 89, 255);
+
+            CreateSettingsText(card.transform, "SETTINGS", new Vector2(0f, 120f), 48f, Color.white);
+            CreateSettingsText(card.transform, "Gameplay settings are ready for\na future sound and accessibility pass.", new Vector2(0f, 35f), 27f, new Color32(224, 235, 250, 255));
+            var close = CreateSettingsButton(card.transform, "CLOSE", new Vector2(-145f, -135f), new Color32(236, 244, 255, 255), new Color32(28, 50, 89, 255));
+            close.onClick.AddListener(() => settingsRoot.SetActive(false));
+            var map = CreateSettingsButton(card.transform, "LEVEL MAP", new Vector2(145f, -135f), new Color32(47, 128, 237, 255), Color.white);
+            map.onClick.AddListener(MapPressed);
+            settingsRoot.SetActive(false);
+        }
+
+        private static void CreateSettingsText(Transform parent, string value, Vector2 position, float fontSize, Color color)
+        {
+            var textObject = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
+            textObject.transform.SetParent(parent, false);
+            var rect = textObject.GetComponent<RectTransform>();
+            rect.anchorMin = rect.anchorMax = new Vector2(.5f, .5f);
+            rect.anchoredPosition = position;
+            rect.sizeDelta = new Vector2(540f, 100f);
+            var text = textObject.GetComponent<TextMeshProUGUI>();
+            text.font = TMP_Settings.defaultFontAsset;
+            text.text = value;
+            text.fontSize = fontSize;
+            text.color = color;
+            text.alignment = TextAlignmentOptions.Center;
+        }
+
+        private static Button CreateSettingsButton(Transform parent, string label, Vector2 position, Color background, Color foreground)
+        {
+            var buttonObject = new GameObject(label + " Button", typeof(RectTransform), typeof(Image), typeof(Button));
+            buttonObject.transform.SetParent(parent, false);
+            var rect = buttonObject.GetComponent<RectTransform>();
+            rect.anchorMin = rect.anchorMax = new Vector2(.5f, .5f);
+            rect.anchoredPosition = position;
+            rect.sizeDelta = new Vector2(240f, 78f);
+            var image = buttonObject.GetComponent<Image>();
+            image.color = background;
+            var textObject = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+            textObject.transform.SetParent(buttonObject.transform, false);
+            var textRect = textObject.GetComponent<RectTransform>();
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = textRect.offsetMax = Vector2.zero;
+            var text = textObject.GetComponent<TextMeshProUGUI>();
+            text.font = TMP_Settings.defaultFontAsset;
+            text.text = label;
+            text.fontSize = 24f;
+            text.color = foreground;
+            text.alignment = TextAlignmentOptions.Center;
+            return buttonObject.GetComponent<Button>();
+        }
 
         private void UndoPressed()
         {
@@ -404,6 +494,16 @@ namespace ArrowMaze.UI
 
             if (popupNextButton != null) popupNextButton.onClick.RemoveListener(NextPressed);
             if (popupMapButton != null) popupMapButton.onClick.RemoveListener(MapPressed);
+
+            if (backButton != null)
+            {
+                backButton.onClick.RemoveListener(MapPressed);
+            }
+
+            if (settingsButton != null)
+            {
+                settingsButton.onClick.RemoveListener(SettingsPressed);
+            }
 
             if (undoButton != null)
             {

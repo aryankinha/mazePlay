@@ -203,7 +203,10 @@ namespace ArrowMaze.Gameplay
                 var pulse = 0.85f + (Mathf.Sin(elapsed * 6f) * 0.15f);
                 if (glowTransform != null)
                 {
-                    glowTransform.localScale = Vector3.one * (cellSize * 1.1f * pulse);
+                    // The glow texture has its own pixels-per-unit. Reusing raw cell size
+                    // here bypassed its sprite calibration and made the hint fill the screen.
+                    var baseScale = ScaleSpriteToWorldSize(glowRenderer.sprite, cellSize * 1.1f);
+                    glowTransform.localScale = Vector3.one * (baseScale * pulse);
                 }
                 yield return null;
             }
