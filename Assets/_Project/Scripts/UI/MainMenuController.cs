@@ -26,21 +26,6 @@ namespace ArrowMaze.UI
 
         private void Awake()
         {
-            if (playContinueButton != null)
-            {
-                playContinueButton.onClick.AddListener(HandlePlayContinue);
-            }
-
-            if (levelMapButton != null)
-            {
-                levelMapButton.onClick.AddListener(HandleOpenLevelMap);
-            }
-
-            if (settingsButton != null)
-            {
-                settingsButton.onClick.AddListener(HandleOpenSettings);
-            }
-
             if (settingsModal != null)
             {
                 settingsModal.OnProgressReset += RefreshUI;
@@ -98,19 +83,19 @@ namespace ArrowMaze.UI
             }
         }
 
-        private void HandlePlayContinue()
+        public void PlayContinue()
         {
             var continueLevel = PlayerProgress.GetContinueLevel();
             LevelSession.SelectedLevel = continueLevel;
             SceneManager.LoadScene("Gameplay");
         }
 
-        private void HandleOpenLevelMap()
+        public void OpenLevelMap()
         {
             SceneManager.LoadScene("LevelMap");
         }
 
-        private void HandleOpenSettings()
+        public void OpenSettings()
         {
             if (settingsModal != null)
             {

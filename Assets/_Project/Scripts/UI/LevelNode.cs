@@ -1,4 +1,3 @@
-using System;
 using ArrowMaze.Meta;
 using TMPro;
 using UnityEngine;
@@ -22,8 +21,10 @@ namespace ArrowMaze.UI
         [Header("Components")]
         [SerializeField] private Button button;
         [SerializeField] private Image nodeBackground;
+        [SerializeField] private Outline nodeOutline;
         [SerializeField] private TMP_Text levelNumberText;
         [SerializeField] private GameObject carMarker;
+        [SerializeField] private GameObject currentGlow;
         [SerializeField] private GameObject starsContainer;
         [SerializeField] private Image[] starImages;
         [SerializeField] private Sprite starFullSprite;
@@ -31,21 +32,9 @@ namespace ArrowMaze.UI
         [SerializeField] private GameObject currentBadge;
         [SerializeField] private GameObject lockIcon;
 
-        private int levelId;
-        private Action<int> onSelected;
-
-        private void Awake()
+        public void Setup(int id, int currentUnlockedLevel)
         {
-            if (button != null)
-            {
-                button.onClick.AddListener(HandleClicked);
-            }
-        }
-
-        public void Setup(int id, int currentUnlockedLevel, Action<int> onSelect)
-        {
-            levelId = id;
-            onSelected = onSelect;
+            var levelId = id;
 
             var unlocked = PlayerProgress.IsUnlocked(levelId);
             var isCurrent = levelId == currentUnlockedLevel;
@@ -61,8 +50,10 @@ namespace ArrowMaze.UI
             {
                 // Current level state
                 if (nodeBackground != null) nodeBackground.color = ColorCurrent;
+                if (nodeOutline != null) nodeOutline.effectColor = Color.white;
                 if (levelNumberText != null) levelNumberText.color = TextWhite;
                 if (carMarker != null) carMarker.SetActive(true);
+                if (currentGlow != null) currentGlow.SetActive(true);
                 if (currentBadge != null) currentBadge.SetActive(true);
                 if (lockIcon != null) lockIcon.SetActive(false);
                 if (starsContainer != null) starsContainer.SetActive(false);
@@ -72,8 +63,10 @@ namespace ArrowMaze.UI
             {
                 // Completed / Unlocked level state
                 if (nodeBackground != null) nodeBackground.color = ColorCompleted;
+                if (nodeOutline != null) nodeOutline.effectColor = StarGold;
                 if (levelNumberText != null) levelNumberText.color = TextNavy;
                 if (carMarker != null) carMarker.SetActive(false);
+                if (currentGlow != null) currentGlow.SetActive(false);
                 if (currentBadge != null) currentBadge.SetActive(false);
                 if (lockIcon != null) lockIcon.SetActive(false);
                 if (button != null) button.interactable = true;
@@ -93,8 +86,10 @@ namespace ArrowMaze.UI
             {
                 // Locked level state
                 if (nodeBackground != null) nodeBackground.color = ColorLocked;
+                if (nodeOutline != null) nodeOutline.effectColor = Color.white;
                 if (levelNumberText != null) levelNumberText.color = TextLocked;
                 if (carMarker != null) carMarker.SetActive(false);
+                if (currentGlow != null) currentGlow.SetActive(false);
                 if (currentBadge != null) currentBadge.SetActive(false);
                 if (lockIcon != null) lockIcon.SetActive(true);
                 if (starsContainer != null) starsContainer.SetActive(false);
@@ -102,12 +97,5 @@ namespace ArrowMaze.UI
             }
         }
 
-        private void HandleClicked()
-        {
-            if (PlayerProgress.IsUnlocked(levelId))
-            {
-                onSelected?.Invoke(levelId);
-            }
-        }
     }
 }
