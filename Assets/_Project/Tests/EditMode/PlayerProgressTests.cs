@@ -10,11 +10,13 @@ namespace ArrowMaze.Tests
         private const string SaveKey = "TapAwayCars.PlayerProgress.v1";
         private const string SelectedLevelKey = "TapAwayCars.SelectedLevel";
         private const string TutorialKey = "TapAwayCars.TutorialCompleted";
+        private const string SoundEffectsKey = "TapAwayCars.SoundEffectsEnabled";
         private const string HapticsKey = "TapAwayCars.HapticsEnabled";
         private bool hadSave;
         private string previousSave;
         private PreferenceSnapshot selectedLevel;
         private PreferenceSnapshot tutorial;
+        private PreferenceSnapshot soundEffects;
         private PreferenceSnapshot haptics;
 
         [SetUp]
@@ -24,6 +26,7 @@ namespace ArrowMaze.Tests
             previousSave = hadSave ? UnityEngine.PlayerPrefs.GetString(SaveKey) : null;
             selectedLevel = CaptureInt(SelectedLevelKey);
             tutorial = CaptureInt(TutorialKey);
+            soundEffects = CaptureInt(SoundEffectsKey);
             haptics = CaptureInt(HapticsKey);
             PlayerProgress.ResetForDevelopment();
         }
@@ -42,6 +45,7 @@ namespace ArrowMaze.Tests
 
             RestoreInt(SelectedLevelKey, selectedLevel);
             RestoreInt(TutorialKey, tutorial);
+            RestoreInt(SoundEffectsKey, soundEffects);
             RestoreInt(HapticsKey, haptics);
             UnityEngine.PlayerPrefs.Save();
             PlayerProgress.ReloadFromDiskForTesting();
@@ -127,6 +131,18 @@ namespace ArrowMaze.Tests
             PlayerProgress.HapticsEnabled = true;
 
             Assert.That(PlayerProgress.HapticsEnabled, Is.True);
+        }
+
+        [Test]
+        public void SoundEffectsSetting_PersistsCorrectly()
+        {
+            PlayerProgress.SoundEffectsEnabled = false;
+
+            Assert.That(PlayerProgress.SoundEffectsEnabled, Is.False);
+
+            PlayerProgress.SoundEffectsEnabled = true;
+
+            Assert.That(PlayerProgress.SoundEffectsEnabled, Is.True);
         }
 
         [Test]

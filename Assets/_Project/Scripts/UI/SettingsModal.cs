@@ -15,9 +15,14 @@ namespace ArrowMaze.UI
         [Header("UI Bindings")]
         [SerializeField] private GameObject modalCard;
         [SerializeField] private Button closeButton;
+        [SerializeField] private Button soundEffectsToggleButton;
+        [SerializeField] private TMP_Text soundEffectsToggleText;
+        [SerializeField] private Image soundEffectsToggleImage;
+        [SerializeField] private RectTransform soundEffectsToggleKnob;
         [SerializeField] private Button hapticsToggleButton;
         [SerializeField] private TMP_Text hapticsToggleText;
         [SerializeField] private Image hapticsToggleImage;
+        [SerializeField] private RectTransform hapticsToggleKnob;
 
         [SerializeField] private Button resetProgressButton;
         [SerializeField] private GameObject resetConfirmDialog;
@@ -31,6 +36,11 @@ namespace ArrowMaze.UI
             if (closeButton != null)
             {
                 closeButton.onClick.AddListener(Hide);
+            }
+
+            if (soundEffectsToggleButton != null)
+            {
+                soundEffectsToggleButton.onClick.AddListener(ToggleSoundEffects);
             }
 
             if (hapticsToggleButton != null)
@@ -87,6 +97,12 @@ namespace ArrowMaze.UI
             RefreshToggles();
         }
 
+        private void ToggleSoundEffects()
+        {
+            PlayerProgress.SoundEffectsEnabled = !PlayerProgress.SoundEffectsEnabled;
+            RefreshToggles();
+        }
+
         private void ConfirmReset()
         {
             PlayerProgress.ResetAllProgress();
@@ -101,10 +117,11 @@ namespace ArrowMaze.UI
 
         private void RefreshToggles()
         {
-            UpdateToggleUI(hapticsToggleImage, hapticsToggleText, PlayerProgress.HapticsEnabled);
+            UpdateToggleUI(soundEffectsToggleImage, soundEffectsToggleText, soundEffectsToggleKnob, PlayerProgress.SoundEffectsEnabled);
+            UpdateToggleUI(hapticsToggleImage, hapticsToggleText, hapticsToggleKnob, PlayerProgress.HapticsEnabled);
         }
 
-        private static void UpdateToggleUI(Image img, TMP_Text text, bool enabled)
+        private static void UpdateToggleUI(Image img, TMP_Text text, RectTransform knob, bool enabled)
         {
             if (img != null)
             {
@@ -115,6 +132,12 @@ namespace ArrowMaze.UI
             {
                 text.text = enabled ? "ON" : "OFF";
                 text.color = enabled ? Color.white : ColorTextNavy;
+                text.rectTransform.anchoredPosition = enabled ? new Vector2(-27f, 0f) : new Vector2(27f, 0f);
+            }
+
+            if (knob != null)
+            {
+                knob.anchoredPosition = enabled ? new Vector2(44f, 0f) : new Vector2(-44f, 0f);
             }
         }
     }

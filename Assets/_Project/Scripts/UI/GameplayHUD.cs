@@ -51,6 +51,7 @@ namespace ArrowMaze.UI
         private GameObject settingsRoot;
         private int displayedLives = -1;
         private int remainingHints = 2;
+        private int pendingVictoryStars;
 
         private void Awake()
         {
@@ -165,19 +166,14 @@ namespace ArrowMaze.UI
         public void ShowLevelComplete(int stars = 1, bool hasNextLevel = true)
         {
             var clampedStars = Mathf.Clamp(stars, 1, 3);
-            var starText = clampedStars switch
-            {
-                3 => "★ ★ ★",
-                2 => "★ ★ ☆",
-                _ => "★ ☆ ☆"
-            };
-
-            ShowPopup("LEVEL COMPLETE!", $"{starText}\nGreat driving! Traffic cleared.");
+            pendingVictoryStars = clampedStars;
+            ShowPopup("LEVEL COMPLETE!", BuildVictoryMessage(0, clampedStars));
             if (popupNextButton != null) popupNextButton.gameObject.SetActive(hasNextLevel);
         }
 
         public void ShowGameOver()
         {
+            pendingVictoryStars = 0;
             if (popupNextButton != null)
             {
                 popupNextButton.gameObject.SetActive(false);
@@ -377,6 +373,7 @@ namespace ArrowMaze.UI
 
         private void HidePopup()
         {
+            pendingVictoryStars = 0;
             if (popupRoot != null)
             {
                 popupRoot.SetActive(false);
@@ -451,7 +448,27 @@ namespace ArrowMaze.UI
                 popupCard.localScale = Vector3.one;
             }
 
+            if (pendingVictoryStars > 0 && popupMessage != null)
+            {
+                var earnedStars = pendingVictoryStars;
+                for (var revealed = 1; revealed <= earnedStars; revealed++)
+                {
+                    popupMessage.text = BuildVictoryMessage(revealed, earnedStars);
+                    yield return new WaitForSecondsRealtime(0.11f);
+                }
+
+                pendingVictoryStars = 0;
+            }
+
             popupRevealRoutine = null;
+        }
+
+        private static string BuildVictoryMessage(int revealedStars, int earnedStars)
+        {
+            var first = earnedStars >= 1 && revealedStars >= 1 ? "★" : "☆";
+            var second = earnedStars >= 2 && revealedStars >= 2 ? "★" : "☆";
+            var third = earnedStars >= 3 && revealedStars >= 3 ? "★" : "☆";
+            return $"{first} {second} {third}\nGreat driving! Traffic cleared.";
         }
 
         private void Unbind()

@@ -102,6 +102,12 @@ namespace ArrowMaze.Meta
             return count;
         }
 
+        public static bool SoundEffectsEnabled
+        {
+            get => PlayerPrefs.GetInt("TapAwayCars.SoundEffectsEnabled", 1) == 1;
+            set { PlayerPrefs.SetInt("TapAwayCars.SoundEffectsEnabled", value ? 1 : 0); PlayerPrefs.Save(); }
+        }
+
         public static bool HapticsEnabled
         {
             get => PlayerPrefs.GetInt("TapAwayCars.HapticsEnabled", 1) == 1;

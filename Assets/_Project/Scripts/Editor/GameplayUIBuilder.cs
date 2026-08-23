@@ -526,13 +526,13 @@ namespace ArrowMaze.Editor
             cardRect.anchorMin = new Vector2(0.5f, 0.5f);
             cardRect.anchorMax = new Vector2(0.5f, 0.5f);
             cardRect.anchoredPosition = Vector2.zero;
-            cardRect.sizeDelta = new Vector2(680f, 500f);
+            cardRect.sizeDelta = new Vector2(680f, 620f);
             var cardImg = card.GetComponent<Image>();
             cardImg.sprite = cardBoardBg;
             cardImg.type = Image.Type.Sliced;
             cardImg.color = Color.white;
 
-            CreateText(card.transform, "Title", "SETTINGS", new Vector2(0f, 170f), new Vector2(400f, 54f), 38f, PrimaryNavy, FontStyles.Bold);
+            CreateText(card.transform, "Title", "SETTINGS", new Vector2(0f, 225f), new Vector2(400f, 54f), 38f, PrimaryNavy, FontStyles.Bold);
 
             // Close button
             var closeBtnObj = new GameObject("CloseButton", typeof(RectTransform), typeof(Image), typeof(Button));
@@ -550,17 +550,17 @@ namespace ArrowMaze.Editor
             closeBtn.targetGraphic = closeImg;
             CreateText(closeBtnObj.transform, "Icon", "✕", Vector2.zero, new Vector2(40f, 40f), 28f, PrimaryNavy, FontStyles.Bold);
 
-            // Haptics is the only feedback setting with a runtime implementation today.
-            var (hapticsBtn, hapticsText, hapticsImg) = CreateSettingRow(card.transform, "Haptics", new Vector2(0f, 45f), badgePill);
+            var (soundBtn, soundText, soundImg, soundKnob) = CreateSettingRow(card.transform, "Sound Effects", new Vector2(0f, 90f), buttonCircle);
+            var (hapticsBtn, hapticsText, hapticsImg, hapticsKnob) = CreateSettingRow(card.transform, "Haptics", new Vector2(0f, 10f), buttonCircle);
 
             // Reset Progress Button
             var resetBtnObj = new GameObject("ResetButton", typeof(RectTransform), typeof(Image), typeof(Button));
             resetBtnObj.transform.SetParent(card.transform, false);
             var resetRect = resetBtnObj.GetComponent<RectTransform>();
-            resetRect.anchoredPosition = new Vector2(0f, -90f);
+            resetRect.anchoredPosition = new Vector2(0f, -145f);
             resetRect.sizeDelta = new Vector2(440f, 84f);
             var resetImg = resetBtnObj.GetComponent<Image>();
-            resetImg.sprite = badgePill;
+            resetImg.sprite = cardBoardBg;
             resetImg.type = Image.Type.Sliced;
             resetImg.color = new Color32(254, 235, 235, 255);
             var resetBtn = resetBtnObj.GetComponent<Button>();
@@ -599,7 +599,7 @@ namespace ArrowMaze.Editor
             cancelRect.anchoredPosition = new Vector2(-130f, -95f);
             cancelRect.sizeDelta = new Vector2(210f, 84f);
             var cancelImg = cancelBtnObj.GetComponent<Image>();
-            cancelImg.sprite = badgePill;
+            cancelImg.sprite = cardBoardBg;
             cancelImg.type = Image.Type.Sliced;
             cancelImg.color = new Color32(226, 232, 240, 255);
             var cancelBtn = cancelBtnObj.GetComponent<Button>();
@@ -613,7 +613,7 @@ namespace ArrowMaze.Editor
             okRect.anchoredPosition = new Vector2(130f, -95f);
             okRect.sizeDelta = new Vector2(210f, 84f);
             var okImg = okBtnObj.GetComponent<Image>();
-            okImg.sprite = badgePill;
+            okImg.sprite = cardBoardBg;
             okImg.type = Image.Type.Sliced;
             okImg.color = new Color32(235, 87, 87, 255);
             var okBtn = okBtnObj.GetComponent<Button>();
@@ -627,9 +627,14 @@ namespace ArrowMaze.Editor
             var ser = new SerializedObject(modalComp);
             ser.FindProperty("modalCard").objectReferenceValue = card;
             ser.FindProperty("closeButton").objectReferenceValue = closeBtn;
+            ser.FindProperty("soundEffectsToggleButton").objectReferenceValue = soundBtn;
+            ser.FindProperty("soundEffectsToggleText").objectReferenceValue = soundText;
+            ser.FindProperty("soundEffectsToggleImage").objectReferenceValue = soundImg;
+            ser.FindProperty("soundEffectsToggleKnob").objectReferenceValue = soundKnob;
             ser.FindProperty("hapticsToggleButton").objectReferenceValue = hapticsBtn;
             ser.FindProperty("hapticsToggleText").objectReferenceValue = hapticsText;
             ser.FindProperty("hapticsToggleImage").objectReferenceValue = hapticsImg;
+            ser.FindProperty("hapticsToggleKnob").objectReferenceValue = hapticsKnob;
             ser.FindProperty("resetProgressButton").objectReferenceValue = resetBtn;
             ser.FindProperty("resetConfirmDialog").objectReferenceValue = confirmObj;
             ser.FindProperty("resetConfirmCancelButton").objectReferenceValue = cancelBtn;
@@ -640,7 +645,7 @@ namespace ArrowMaze.Editor
             return modalComp;
         }
 
-        private static (Button btn, TMP_Text label, Image img) CreateSettingRow(Transform parent, string title, Vector2 pos, Sprite badgePill)
+        private static (Button btn, TMP_Text label, Image img, RectTransform knob) CreateSettingRow(Transform parent, string title, Vector2 pos, Sprite circle)
         {
             var rowObj = new GameObject(title + " Row", typeof(RectTransform));
             rowObj.transform.SetParent(parent, false);
@@ -654,17 +659,28 @@ namespace ArrowMaze.Editor
             toggleObj.transform.SetParent(rowObj.transform, false);
             var tRect = toggleObj.GetComponent<RectTransform>();
             tRect.anchoredPosition = new Vector2(170f, 0f);
-            tRect.sizeDelta = new Vector2(130f, 54f);
+            tRect.sizeDelta = new Vector2(156f, 64f);
             var tImg = toggleObj.GetComponent<Image>();
-            tImg.sprite = badgePill;
-            tImg.type = Image.Type.Sliced;
+            tImg.sprite = circle;
+            tImg.type = Image.Type.Simple;
             tImg.color = AccentBlue;
+            tImg.raycastTarget = true;
             var tBtn = toggleObj.GetComponent<Button>();
             tBtn.targetGraphic = tImg;
 
-            var tText = CreateText(toggleObj.transform, "Label", "ON", Vector2.zero, new Vector2(100f, 36f), 22f, Color.white, FontStyles.Bold);
+            var tText = CreateText(toggleObj.transform, "Label", "ON", new Vector2(-27f, 0f), new Vector2(76f, 36f), 21f, Color.white, FontStyles.Bold);
+            var knobObj = new GameObject("Knob", typeof(RectTransform), typeof(Image));
+            knobObj.transform.SetParent(toggleObj.transform, false);
+            var knobRect = knobObj.GetComponent<RectTransform>();
+            knobRect.anchoredPosition = new Vector2(44f, 0f);
+            knobRect.sizeDelta = new Vector2(48f, 48f);
+            var knobImg = knobObj.GetComponent<Image>();
+            knobImg.sprite = circle;
+            knobImg.preserveAspect = true;
+            knobImg.color = Color.white;
+            knobImg.raycastTarget = false;
 
-            return (tBtn, tText, tImg);
+            return (tBtn, tText, tImg, knobRect);
         }
 
         private static TMP_Text CreateText(Transform parent, string name, string content, Vector2 pos, Vector2 size, float fontSize, Color color, FontStyles style = FontStyles.Normal, TextAlignmentOptions align = TextAlignmentOptions.Center)

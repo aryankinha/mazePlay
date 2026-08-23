@@ -138,6 +138,7 @@ namespace ArrowMaze.Gameplay
         {
             wrongTaps++;
             gridManager.PlayWrongTapFeedback(coordinate);
+            GameFeedback.PlayBlocked();
 #if UNITY_IOS || UNITY_ANDROID
             if (PlayerProgress.HapticsEnabled)
             {
@@ -150,6 +151,7 @@ namespace ArrowMaze.Gameplay
         private void HandleCorrectTap(GridCoordinate coordinate)
         {
             finalCarCoordinate = coordinate;
+            GameFeedback.PlayCarMove();
             gridManager.PlayClearAnimation(coordinate);
         }
 
@@ -173,10 +175,12 @@ namespace ArrowMaze.Gameplay
         {
             if (!awaitingFinalExit || coordinate != finalCarCoordinate)
             {
+                GameFeedback.PlayExit();
                 return;
             }
 
             awaitingFinalExit = false;
+            GameFeedback.PlaySuccess();
             gameplayHud?.ShowLevelComplete(pendingStars, currentDefinition.Id < LevelCatalog.HighestCatalogLevel);
             Debug.Log("Tap Away Cars level complete!");
             OnLevelWin?.Invoke();
