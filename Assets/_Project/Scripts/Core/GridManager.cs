@@ -36,6 +36,7 @@ namespace ArrowMaze.Core
         private float cellSize = MinCellSize;
 
         public event Action<GridCoordinate> TileTapped;
+        public event Action<GridCoordinate> CarExitAnimationCompleted;
 
         public MazeLevel CurrentLevel => currentLevel;
         public IReadOnlyDictionary<GridCoordinate, TileController> Tiles => tiles;
@@ -81,6 +82,7 @@ namespace ArrowMaze.Core
                         hasCar,
                         colorIndex);
                     tile.TapRequested += HandleTileTapped;
+                    tile.ExitAnimationCompleted += HandleCarExitAnimationCompleted;
                     tiles.Add(coordinate, tile);
                 }
             }
@@ -217,28 +219,17 @@ namespace ArrowMaze.Core
             RequestTap(coordinate);
         }
 
+        private void HandleCarExitAnimationCompleted(GridCoordinate coordinate)
+        {
+            CarExitAnimationCompleted?.Invoke(coordinate);
+        }
+
         private Vector3 GetLocalPosition(GridCoordinate coordinate, MazeLevel level)
         {
             var pitch = cellSize * CellPitchMultiplier;
             var x = (coordinate.Column - ((level.Columns - 1) * 0.5f)) * pitch;
             var y = (((level.Rows - 1) * 0.5f) - coordinate.Row) * pitch;
             return new Vector3(x, y, 0f);
-        }
-
-        private float CalculateExitTravelDistance(MazeLevel level, GridCoordinate coordinate)
-        {
-            var steps = 0;
-            var current = coordinate;
-            var direction = level.GetDirection(coordinate);
-            do
-            {
-                steps++;
-                current = StraightLineLegality.Move(current, direction);
-            }
-            while (level.IsInBounds(current));
-
-            // Continue past the gate so the car is fully outside the board before hiding.
-            return cellSize * (steps + 0.60f);
         }
 
         private void EnsureTileContainer()
@@ -259,6 +250,8 @@ namespace ArrowMaze.Core
             {
                 if (tile != null)
                 {
+                    tile.TapRequested -= HandleTileTapped;
+                    tile.ExitAnimationCompleted -= HandleCarExitAnimationCompleted;
                     Destroy(tile.gameObject);
                 }
             }

@@ -34,9 +34,12 @@ namespace ArrowMaze.Gameplay
         private float cellSize = 1f;
         private Coroutine wrongTapRoutine;
         private Coroutine hintGlowRoutine;
+        private Coroutine clearDriveRoutine;
+        private Vector3 carRestingScale = Vector3.one;
         private int carColorIndex;
 
         public event Action<GridCoordinate> TapRequested;
+        public event Action<GridCoordinate> ExitAnimationCompleted;
 
         public GridCoordinate Coordinate { get; private set; }
         public ArrowDirection Direction { get; private set; }
@@ -94,7 +97,8 @@ namespace ArrowMaze.Gameplay
             carRenderer.color = Color.white;
             carRenderer.enabled = hasCar;
             carTransform.localPosition = Vector3.zero;
-            carTransform.localScale = Vector3.one * ScaleSpriteToWorldSize(carRenderer.sprite, cellSize * 0.72f);
+            carRestingScale = Vector3.one * ScaleSpriteToWorldSize(carRenderer.sprite, cellSize * 0.72f);
+            carTransform.localScale = carRestingScale;
 
             // Glow / Hint visual
             if (glowRenderer != null)
@@ -145,7 +149,12 @@ namespace ArrowMaze.Gameplay
                 carTransform.localPosition = Vector3.zero;
             }
 
-            StartCoroutine(ClearDriveRoutine());
+            if (clearDriveRoutine != null)
+            {
+                StopCoroutine(clearDriveRoutine);
+            }
+
+            clearDriveRoutine = StartCoroutine(ClearDriveRoutine());
         }
 
         public void RestoreCar()
@@ -155,11 +164,25 @@ namespace ArrowMaze.Gameplay
                 return;
             }
 
+            if (clearDriveRoutine != null)
+            {
+                StopCoroutine(clearDriveRoutine);
+                clearDriveRoutine = null;
+            }
+
+            if (wrongTapRoutine != null)
+            {
+                StopCoroutine(wrongTapRoutine);
+                wrongTapRoutine = null;
+            }
+
+            HideHint();
             isCleared = false;
             acceptsInput = true;
             tileCollider.enabled = true;
 
             carTransform.localPosition = Vector3.zero;
+            carTransform.localScale = carRestingScale;
             carRenderer.color = Color.white;
             carRenderer.enabled = true;
         }
@@ -227,7 +250,7 @@ namespace ArrowMaze.Gameplay
             var travelDistance = CalculateOffscreenTravelDistance(driveDirection);
             var targetPos = initialPos + ((Vector3)driveDirection * travelDistance);
             var duration = Mathf.Clamp(travelDistance / 11f, MinimumClearDuration, MaximumClearDuration);
-            var initialScale = carTransform.localScale;
+            var initialScale = carRestingScale;
 
             while (elapsed < duration)
             {
@@ -240,15 +263,21 @@ namespace ArrowMaze.Gameplay
                 carTransform.localPosition = Vector3.Lerp(initialPos, targetPos, smoothProgress);
                 var launchPulse = 1f + (Mathf.Sin(Mathf.Min(progress, 0.28f) / 0.28f * Mathf.PI) * 0.06f);
                 carTransform.localScale = initialScale * launchPulse;
-                var carAlpha = progress < 0.72f ? 1f : Mathf.Clamp01(1f - ((progress - 0.72f) / 0.28f));
-                carRenderer.color = new Color(1f, 1f, 1f, carAlpha);
+                // Keep the vehicle visible through the gate and until its complete sprite bounds
+                // are beyond the viewport; fading earlier made it appear to vanish in empty space.
+                carRenderer.color = Color.white;
 
                 yield return null;
             }
 
+            clearDriveRoutine = null;
+            // Notify while the renderer is still at the measured off-screen target so
+            // completion observers can verify the viewport contract deterministically.
+            ExitAnimationCompleted?.Invoke(Coordinate);
             carRenderer.enabled = false;
             carTransform.localPosition = Vector3.zero;
             carTransform.localScale = initialScale;
+            carRenderer.color = Color.white;
         }
 
         public void PlayWrongTapFeedback()

@@ -82,6 +82,29 @@ namespace ArrowMaze.Tests
         }
 
         [Test]
+        public void Undo_RestoresTheCarAndItsBlockingRelationship()
+        {
+            var level = MazeLevel.FromDirections(new[,]
+            {
+                { ArrowDirection.Right, ArrowDirection.Right }
+            });
+            var validator = new PathValidator(level);
+            var left = new GridCoordinate(0, 0);
+            var right = new GridCoordinate(0, 1);
+
+            Assert.That(validator.IsLegalTap(left), Is.False);
+            Assert.That(validator.RegisterTap(right), Is.True);
+            Assert.That(validator.RemainingCars, Is.EqualTo(1));
+            Assert.That(validator.IsLegalTap(left), Is.True);
+
+            Assert.That(validator.TryUndo(out var restored), Is.True);
+            Assert.That(restored, Is.EqualTo(right));
+            Assert.That(validator.RemainingCars, Is.EqualTo(2));
+            Assert.That(validator.IsCleared(right), Is.False);
+            Assert.That(validator.IsLegalTap(left), Is.False);
+        }
+
+        [Test]
         public void RoadTopology_EndsEachCarRouteAtItsActualExitGate()
         {
             var level = MazeLevel.FromDirections(

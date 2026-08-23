@@ -8,14 +8,23 @@ namespace ArrowMaze.Tests
     public sealed class PlayerProgressTests
     {
         private const string SaveKey = "TapAwayCars.PlayerProgress.v1";
+        private const string SelectedLevelKey = "TapAwayCars.SelectedLevel";
+        private const string TutorialKey = "TapAwayCars.TutorialCompleted";
+        private const string HapticsKey = "TapAwayCars.HapticsEnabled";
         private bool hadSave;
         private string previousSave;
+        private PreferenceSnapshot selectedLevel;
+        private PreferenceSnapshot tutorial;
+        private PreferenceSnapshot haptics;
 
         [SetUp]
         public void SetUp()
         {
             hadSave = UnityEngine.PlayerPrefs.HasKey(SaveKey);
             previousSave = hadSave ? UnityEngine.PlayerPrefs.GetString(SaveKey) : null;
+            selectedLevel = CaptureInt(SelectedLevelKey);
+            tutorial = CaptureInt(TutorialKey);
+            haptics = CaptureInt(HapticsKey);
             PlayerProgress.ResetForDevelopment();
         }
 
@@ -31,8 +40,40 @@ namespace ArrowMaze.Tests
                 UnityEngine.PlayerPrefs.DeleteKey(SaveKey);
             }
 
+            RestoreInt(SelectedLevelKey, selectedLevel);
+            RestoreInt(TutorialKey, tutorial);
+            RestoreInt(HapticsKey, haptics);
             UnityEngine.PlayerPrefs.Save();
             PlayerProgress.ReloadFromDiskForTesting();
+        }
+
+        private static PreferenceSnapshot CaptureInt(string key)
+        {
+            return new PreferenceSnapshot(UnityEngine.PlayerPrefs.HasKey(key), UnityEngine.PlayerPrefs.GetInt(key));
+        }
+
+        private static void RestoreInt(string key, PreferenceSnapshot snapshot)
+        {
+            if (snapshot.Exists)
+            {
+                UnityEngine.PlayerPrefs.SetInt(key, snapshot.Value);
+            }
+            else
+            {
+                UnityEngine.PlayerPrefs.DeleteKey(key);
+            }
+        }
+
+        private readonly struct PreferenceSnapshot
+        {
+            public PreferenceSnapshot(bool exists, int value)
+            {
+                Exists = exists;
+                Value = value;
+            }
+
+            public bool Exists { get; }
+            public int Value { get; }
         }
 
         [Test]
@@ -77,22 +118,14 @@ namespace ArrowMaze.Tests
         }
 
         [Test]
-        public void Settings_TogglesPersistCorrectly()
+        public void HapticsSetting_PersistsCorrectly()
         {
-            PlayerProgress.SoundEnabled = false;
-            PlayerProgress.MusicEnabled = false;
             PlayerProgress.HapticsEnabled = false;
 
-            Assert.That(PlayerProgress.SoundEnabled, Is.False);
-            Assert.That(PlayerProgress.MusicEnabled, Is.False);
             Assert.That(PlayerProgress.HapticsEnabled, Is.False);
 
-            PlayerProgress.SoundEnabled = true;
-            PlayerProgress.MusicEnabled = true;
             PlayerProgress.HapticsEnabled = true;
 
-            Assert.That(PlayerProgress.SoundEnabled, Is.True);
-            Assert.That(PlayerProgress.MusicEnabled, Is.True);
             Assert.That(PlayerProgress.HapticsEnabled, Is.True);
         }
 

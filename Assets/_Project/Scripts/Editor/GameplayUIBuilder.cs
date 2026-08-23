@@ -526,13 +526,13 @@ namespace ArrowMaze.Editor
             cardRect.anchorMin = new Vector2(0.5f, 0.5f);
             cardRect.anchorMax = new Vector2(0.5f, 0.5f);
             cardRect.anchoredPosition = Vector2.zero;
-            cardRect.sizeDelta = new Vector2(680f, 680f);
+            cardRect.sizeDelta = new Vector2(680f, 500f);
             var cardImg = card.GetComponent<Image>();
             cardImg.sprite = cardBoardBg;
             cardImg.type = Image.Type.Sliced;
             cardImg.color = Color.white;
 
-            CreateText(card.transform, "Title", "SETTINGS", new Vector2(0f, 260f), new Vector2(400f, 54f), 38f, PrimaryNavy, FontStyles.Bold);
+            CreateText(card.transform, "Title", "SETTINGS", new Vector2(0f, 170f), new Vector2(400f, 54f), 38f, PrimaryNavy, FontStyles.Bold);
 
             // Close button
             var closeBtnObj = new GameObject("CloseButton", typeof(RectTransform), typeof(Image), typeof(Button));
@@ -550,16 +550,14 @@ namespace ArrowMaze.Editor
             closeBtn.targetGraphic = closeImg;
             CreateText(closeBtnObj.transform, "Icon", "✕", Vector2.zero, new Vector2(40f, 40f), 28f, PrimaryNavy, FontStyles.Bold);
 
-            // Rows (Sound, Music, Haptics)
-            var (soundBtn, soundText, soundImg) = CreateSettingRow(card.transform, "Sound Effects", new Vector2(0f, 140f), badgePill);
-            var (musicBtn, musicText, musicImg) = CreateSettingRow(card.transform, "Music", new Vector2(0f, 45f), badgePill);
-            var (hapticsBtn, hapticsText, hapticsImg) = CreateSettingRow(card.transform, "Haptics", new Vector2(0f, -50f), badgePill);
+            // Haptics is the only feedback setting with a runtime implementation today.
+            var (hapticsBtn, hapticsText, hapticsImg) = CreateSettingRow(card.transform, "Haptics", new Vector2(0f, 45f), badgePill);
 
             // Reset Progress Button
             var resetBtnObj = new GameObject("ResetButton", typeof(RectTransform), typeof(Image), typeof(Button));
             resetBtnObj.transform.SetParent(card.transform, false);
             var resetRect = resetBtnObj.GetComponent<RectTransform>();
-            resetRect.anchoredPosition = new Vector2(0f, -165f);
+            resetRect.anchoredPosition = new Vector2(0f, -90f);
             resetRect.sizeDelta = new Vector2(440f, 84f);
             var resetImg = resetBtnObj.GetComponent<Image>();
             resetImg.sprite = badgePill;
@@ -629,12 +627,6 @@ namespace ArrowMaze.Editor
             var ser = new SerializedObject(modalComp);
             ser.FindProperty("modalCard").objectReferenceValue = card;
             ser.FindProperty("closeButton").objectReferenceValue = closeBtn;
-            ser.FindProperty("soundToggleButton").objectReferenceValue = soundBtn;
-            ser.FindProperty("soundToggleText").objectReferenceValue = soundText;
-            ser.FindProperty("soundToggleImage").objectReferenceValue = soundImg;
-            ser.FindProperty("musicToggleButton").objectReferenceValue = musicBtn;
-            ser.FindProperty("musicToggleText").objectReferenceValue = musicText;
-            ser.FindProperty("musicToggleImage").objectReferenceValue = musicImg;
             ser.FindProperty("hapticsToggleButton").objectReferenceValue = hapticsBtn;
             ser.FindProperty("hapticsToggleText").objectReferenceValue = hapticsText;
             ser.FindProperty("hapticsToggleImage").objectReferenceValue = hapticsImg;

@@ -15,14 +15,6 @@ namespace ArrowMaze.UI
         [Header("UI Bindings")]
         [SerializeField] private GameObject modalCard;
         [SerializeField] private Button closeButton;
-        [SerializeField] private Button soundToggleButton;
-        [SerializeField] private TMP_Text soundToggleText;
-        [SerializeField] private Image soundToggleImage;
-
-        [SerializeField] private Button musicToggleButton;
-        [SerializeField] private TMP_Text musicToggleText;
-        [SerializeField] private Image musicToggleImage;
-
         [SerializeField] private Button hapticsToggleButton;
         [SerializeField] private TMP_Text hapticsToggleText;
         [SerializeField] private Image hapticsToggleImage;
@@ -39,16 +31,6 @@ namespace ArrowMaze.UI
             if (closeButton != null)
             {
                 closeButton.onClick.AddListener(Hide);
-            }
-
-            if (soundToggleButton != null)
-            {
-                soundToggleButton.onClick.AddListener(ToggleSound);
-            }
-
-            if (musicToggleButton != null)
-            {
-                musicToggleButton.onClick.AddListener(ToggleMusic);
             }
 
             if (hapticsToggleButton != null)
@@ -99,18 +81,6 @@ namespace ArrowMaze.UI
             gameObject.SetActive(false);
         }
 
-        private void ToggleSound()
-        {
-            PlayerProgress.SoundEnabled = !PlayerProgress.SoundEnabled;
-            RefreshToggles();
-        }
-
-        private void ToggleMusic()
-        {
-            PlayerProgress.MusicEnabled = !PlayerProgress.MusicEnabled;
-            RefreshToggles();
-        }
-
         private void ToggleHaptics()
         {
             PlayerProgress.HapticsEnabled = !PlayerProgress.HapticsEnabled;
@@ -131,8 +101,6 @@ namespace ArrowMaze.UI
 
         private void RefreshToggles()
         {
-            UpdateToggleUI(soundToggleImage, soundToggleText, PlayerProgress.SoundEnabled);
-            UpdateToggleUI(musicToggleImage, musicToggleText, PlayerProgress.MusicEnabled);
             UpdateToggleUI(hapticsToggleImage, hapticsToggleText, PlayerProgress.HapticsEnabled);
         }
 

@@ -56,6 +56,9 @@ namespace ArrowMaze.UI
             if (playContinueLabel != null)
             {
                 playContinueLabel.text = isNewPlayer ? "PLAY" : "CONTINUE";
+                var labelPosition = playContinueLabel.rectTransform.anchoredPosition;
+                labelPosition.y = isNewPlayer ? 0f : 19f;
+                playContinueLabel.rectTransform.anchoredPosition = labelPosition;
             }
 
             if (playContinueSubtext != null)

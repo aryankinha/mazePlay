@@ -1,3 +1,4 @@
+using System.Collections;
 using ArrowMaze.Meta;
 using TMPro;
 using UnityEngine;
@@ -32,6 +33,8 @@ namespace ArrowMaze.UI
         [SerializeField] private GameObject currentBadge;
         [SerializeField] private GameObject lockIcon;
 
+        private Coroutine currentPulseRoutine;
+
         public void Setup(int id, int currentUnlockedLevel)
         {
             var levelId = id;
@@ -58,9 +61,11 @@ namespace ArrowMaze.UI
                 if (lockIcon != null) lockIcon.SetActive(false);
                 if (starsContainer != null) starsContainer.SetActive(false);
                 if (button != null) button.interactable = true;
+                StartCurrentPulse();
             }
             else if (completed || unlocked)
             {
+                StopCurrentPulse();
                 // Completed / Unlocked level state
                 if (nodeBackground != null) nodeBackground.color = ColorCompleted;
                 if (nodeOutline != null) nodeOutline.effectColor = StarGold;
@@ -84,6 +89,7 @@ namespace ArrowMaze.UI
             }
             else
             {
+                StopCurrentPulse();
                 // Locked level state
                 if (nodeBackground != null) nodeBackground.color = ColorLocked;
                 if (nodeOutline != null) nodeOutline.effectColor = Color.white;
@@ -94,6 +100,42 @@ namespace ArrowMaze.UI
                 if (lockIcon != null) lockIcon.SetActive(true);
                 if (starsContainer != null) starsContainer.SetActive(false);
                 if (button != null) button.interactable = false;
+            }
+        }
+
+        private void StartCurrentPulse()
+        {
+            if (currentGlow == null || currentPulseRoutine != null)
+            {
+                return;
+            }
+
+            currentPulseRoutine = StartCoroutine(CurrentPulseRoutine());
+        }
+
+        private void StopCurrentPulse()
+        {
+            if (currentPulseRoutine != null)
+            {
+                StopCoroutine(currentPulseRoutine);
+                currentPulseRoutine = null;
+            }
+
+            if (currentGlow != null)
+            {
+                currentGlow.transform.localScale = Vector3.one;
+            }
+        }
+
+        private IEnumerator CurrentPulseRoutine()
+        {
+            var elapsed = 0f;
+            while (true)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                var pulse = 1f + (Mathf.Sin(elapsed * 2.8f) * 0.045f);
+                currentGlow.transform.localScale = Vector3.one * pulse;
+                yield return null;
             }
         }
 

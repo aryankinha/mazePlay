@@ -178,6 +178,11 @@ namespace ArrowMaze.UI
 
         public void ShowGameOver()
         {
+            if (popupNextButton != null)
+            {
+                popupNextButton.gameObject.SetActive(false);
+            }
+
             ShowPopup("Out of Hearts", "Tap in the right order to avoid collisions.");
         }
 

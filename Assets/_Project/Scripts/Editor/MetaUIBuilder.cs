@@ -51,7 +51,12 @@ namespace ArrowMaze.Editor
         public static void CapturePreview()
         {
             var sceneName = EditorSceneManager.GetActiveScene().name;
-            var path = $"/Users/aryankinha/.gemini/antigravity-ide/brain/a5a2b4f5-0157-4fe3-9180-9d90147baba7/{sceneName.ToLowerInvariant()}_rendered.png";
+            var captureDirectory = System.IO.Path.Combine(
+                System.IO.Directory.GetParent(Application.dataPath).FullName,
+                "Temp",
+                "Captures");
+            System.IO.Directory.CreateDirectory(captureDirectory);
+            var path = System.IO.Path.Combine(captureDirectory, sceneName.ToLowerInvariant() + "_rendered.png");
             var rt = new RenderTexture(540, 960, 24);
             var canvas = Object.FindAnyObjectByType<Canvas>();
             var cam = Camera.main;
@@ -102,7 +107,12 @@ namespace ArrowMaze.Editor
             CreateText(safeArea, "Tagline Text", "Clear the traffic. One car at a time.", new Vector2(0f, 490f), new Vector2(560f, 38f), 22f, Color.white, FontStyles.Bold);
             BuildDecorativeHero(safeArea, art);
 
-            var progress = CreateCard(safeArea, "Progress Card", new Vector2(0f, -140f), new Vector2(870f, 180f), Color.white, art.Card);
+            var continueButton = CreateActionButton(safeArea, "PlayContinueButton", new Vector2(0f, -175f), new Vector2(870f, 126f), Gold, GoldDark, art.Card, null, "CONTINUE", "LEVEL 1");
+            var continueLabel = continueButton.transform.Find("Label").GetComponent<TMP_Text>();
+            var continueSubtext = continueButton.transform.Find("Subtext").GetComponent<TMP_Text>();
+            var mapButton = CreateActionButton(safeArea, "LevelMapButton", new Vector2(0f, -330f), new Vector2(870f, 114f), Blue, Navy, art.Card, null, "LEVEL MAP", null);
+
+            var progress = CreateCard(safeArea, "Progress Card", new Vector2(0f, -560f), new Vector2(870f, 210f), Color.white, art.Card);
             CreateText(progress.transform, "Progress Label", "YOUR JOURNEY", new Vector2(-240f, 44f), new Vector2(330f, 28f), 16f, TextMuted, FontStyles.Bold, TextAlignmentOptions.MidlineLeft);
             var progressLevel = CreateText(progress.transform, "Progress Level", "LEVEL 1 OF 23", new Vector2(-240f, 8f), new Vector2(330f, 38f), 26f, TextDark, FontStyles.Bold, TextAlignmentOptions.MidlineLeft);
             CreateImage(progress.transform, "Progress Star Icon", art.StarFull, new Vector2(170f, 8f), new Vector2(30f, 30f));
@@ -115,10 +125,6 @@ namespace ArrowMaze.Editor
             fillRect.offsetMin = Vector2.zero;
             fillRect.offsetMax = Vector2.zero;
 
-            var continueButton = CreateActionButton(safeArea, "PlayContinueButton", new Vector2(0f, -360f), new Vector2(870f, 126f), Gold, GoldDark, art.Card, null, "CONTINUE", "LEVEL 1");
-            var continueLabel = continueButton.transform.Find("Label").GetComponent<TMP_Text>();
-            var continueSubtext = continueButton.transform.Find("Subtext").GetComponent<TMP_Text>();
-            var mapButton = CreateActionButton(safeArea, "LevelMapButton", new Vector2(0f, -515f), new Vector2(870f, 114f), Blue, Navy, art.Card, null, "LEVEL MAP", null);
             var settingsModal = CreateSettingsModal(safeArea, art);
 
             if (controller == null) controller = safeArea.GetComponentInParent<MainMenuController>();
@@ -261,7 +267,7 @@ namespace ArrowMaze.Editor
         {
             var card = CreateCard(parent, "Traffic Hero", new Vector2(0f, 195f), new Vector2(870f, 390f), new Color(1f, 1f, 1f, .94f), art.Card);
             var shadow = CreatePanel(card.transform, "Road Shadow", new Vector2(0f, -5f), new Vector2(260f, 800f), new Color(0f, 0f, 0f, .20f), null, false); shadow.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 90f);
-            var road = CreatePanel(card.transform, "Decorative Highway", new Vector2(0f, 5f), new Vector2(250f, 790f), Color.white, art.Road, false); road.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 90f); road.type = Image.Type.Tiled;
+            var road = CreatePanel(card.transform, "Decorative Highway", new Vector2(0f, 5f), new Vector2(790f, 250f), Color.white, art.HeroRoad, false); road.type = Image.Type.Simple;
             CreateImage(card.transform, "Exit Gate", art.Exit, new Vector2(295f, 95f), new Vector2(130f, 65f));
             CreateText(card.transform, "Hero Caption", "THE ROAD IS CLEARING", new Vector2(0f, 155f), new Vector2(620f, 30f), 17f, TextMuted, FontStyles.Bold);
             CreateImage(card.transform, "Hero Car Yellow", art.YellowCar, new Vector2(-235f, -8f), new Vector2(105f, 150f), 12f);
@@ -286,7 +292,7 @@ namespace ArrowMaze.Editor
             var layout = stars.GetComponent<HorizontalLayoutGroup>(); layout.spacing = 7f; layout.childAlignment = TextAnchor.MiddleCenter; layout.childControlWidth = false; layout.childControlHeight = false;
             var starImages = new Image[3]; for (var index = 0; index < starImages.Length; index++) starImages[index] = CreateImage(stars.transform, "Star " + (index + 1), art.StarFull, Vector2.zero, new Vector2(29f, 29f)).GetComponent<Image>();
             var marker = CreateImage(node.transform, "Car Marker", art.YellowCar, new Vector2(0f, 115f), new Vector2(54f, 78f)); marker.SetActive(false);
-            var badge = CreatePill(node.transform, "Current Badge", new Vector2(112f, -57f), new Vector2(133f, 38f), Blue, art.Pill, false); CreateText(badge.transform, "Text", "CURRENT", Vector2.zero, new Vector2(125f, 30f), 16f, Color.white, FontStyles.Bold); badge.gameObject.SetActive(false);
+            var badge = CreatePill(node.transform, "Current Badge", new Vector2(112f, -68f), new Vector2(146f, 42f), Navy, art.Pill, false); CreateText(badge.transform, "Text", "CURRENT", Vector2.zero, new Vector2(136f, 32f), 16f, Color.white, FontStyles.Bold); badge.gameObject.SetActive(false);
             var lockLabel = CreateText(node.transform, "Lock Label", "LOCKED", new Vector2(0f, -33f), new Vector2(120f, 30f), 17f, Color.white, FontStyles.Bold); lockLabel.gameObject.SetActive(false);
             var component = node.GetComponent<LevelNode>(); var serialized = new SerializedObject(component);
             serialized.FindProperty("button").objectReferenceValue = button; serialized.FindProperty("nodeBackground").objectReferenceValue = image; serialized.FindProperty("nodeOutline").objectReferenceValue = outline; serialized.FindProperty("levelNumberText").objectReferenceValue = number; serialized.FindProperty("carMarker").objectReferenceValue = marker; serialized.FindProperty("currentGlow").objectReferenceValue = glow; serialized.FindProperty("starsContainer").objectReferenceValue = stars; serialized.FindProperty("starFullSprite").objectReferenceValue = art.StarFull; serialized.FindProperty("starEmptySprite").objectReferenceValue = art.StarEmpty; serialized.FindProperty("currentBadge").objectReferenceValue = badge.gameObject; serialized.FindProperty("lockIcon").objectReferenceValue = lockLabel.gameObject;
@@ -386,15 +392,15 @@ namespace ArrowMaze.Editor
         private static SettingsModal CreateSettingsModal(Transform parent, Art art)
         {
             var root = new GameObject("Settings Modal", typeof(RectTransform), typeof(Image), typeof(SettingsModal)); root.transform.SetParent(parent, false); Stretch(root.GetComponent<RectTransform>(), Vector2.zero, Vector2.zero); root.GetComponent<Image>().color = new Color(0f, .06f, .16f, .66f);
-            var card = CreateCard(root.transform, "Card", Vector2.zero, new Vector2(720f, 720f), Color.white, art.Card).gameObject; CreateText(card.transform, "Title", "SETTINGS", new Vector2(0f, 260f), new Vector2(400f, 56f), 42f, TextDark, FontStyles.Bold);
-            var close = CreateCircularButton(card.transform, "CloseButton", new Vector2(280f, 260f), 70f, art.ButtonCircle, art.Back); close.transform.localRotation = Quaternion.Euler(0f, 0f, 180f);
-            var sound = CreateSettingRow(card.transform, "Sound Effects", new Vector2(0f, 135f), art.Pill); var music = CreateSettingRow(card.transform, "Music", new Vector2(0f, 35f), art.Pill); var haptics = CreateSettingRow(card.transform, "Haptics", new Vector2(0f, -65f), art.Pill);
-            var reset = CreateActionButton(card.transform, "ResetButton", new Vector2(0f, -195f), new Vector2(470f, 84f), new Color32(235, 87, 87, 255), new Color32(176, 54, 54, 255), art.Pill, null, "RESET PROGRESS", null);
+            var card = CreateCard(root.transform, "Card", Vector2.zero, new Vector2(720f, 500f), Color.white, art.Card).gameObject; CreateText(card.transform, "Title", "SETTINGS", new Vector2(0f, 160f), new Vector2(400f, 56f), 42f, TextDark, FontStyles.Bold);
+            var close = CreateCircularButton(card.transform, "CloseButton", new Vector2(280f, 160f), 70f, art.ButtonCircle, art.Back); close.transform.localRotation = Quaternion.Euler(0f, 0f, 180f);
+            var haptics = CreateSettingRow(card.transform, "Haptics", new Vector2(0f, 40f), art.Pill);
+            var reset = CreateActionButton(card.transform, "ResetButton", new Vector2(0f, -95f), new Vector2(470f, 84f), new Color32(235, 87, 87, 255), new Color32(176, 54, 54, 255), art.Pill, null, "RESET PROGRESS", null);
             var confirm = new GameObject("ResetConfirmDialog", typeof(RectTransform), typeof(Image)); confirm.transform.SetParent(root.transform, false); Stretch(confirm.GetComponent<RectTransform>(), Vector2.zero, Vector2.zero); confirm.GetComponent<Image>().color = new Color(0f, .05f, .13f, .74f);
             var confirmCard = CreateCard(confirm.transform, "Confirm Card", Vector2.zero, new Vector2(660f, 410f), Color.white, art.Card).gameObject; CreateText(confirmCard.transform, "Title", "RESET ALL PROGRESS?", new Vector2(0f, 110f), new Vector2(600f, 48f), 31f, TextDark, FontStyles.Bold); CreateText(confirmCard.transform, "Message", "Your unlocked levels and stars will be removed.", new Vector2(0f, 38f), new Vector2(590f, 52f), 22f, TextMuted, FontStyles.Normal);
             var cancel = CreateActionButton(confirmCard.transform, "CancelButton", new Vector2(-150f, -110f), new Vector2(240f, 78f), new Color32(213, 223, 237, 255), Disabled, art.Pill, null, "CANCEL", null); var ok = CreateActionButton(confirmCard.transform, "OkButton", new Vector2(150f, -110f), new Vector2(240f, 78f), new Color32(235, 87, 87, 255), new Color32(176, 54, 54, 255), art.Pill, null, "RESET", null); confirm.SetActive(false);
             var modal = root.GetComponent<SettingsModal>(); var serialized = new SerializedObject(modal);
-            serialized.FindProperty("modalCard").objectReferenceValue = card; serialized.FindProperty("closeButton").objectReferenceValue = close; serialized.FindProperty("soundToggleButton").objectReferenceValue = sound.Button; serialized.FindProperty("soundToggleText").objectReferenceValue = sound.Label; serialized.FindProperty("soundToggleImage").objectReferenceValue = sound.Image; serialized.FindProperty("musicToggleButton").objectReferenceValue = music.Button; serialized.FindProperty("musicToggleText").objectReferenceValue = music.Label; serialized.FindProperty("musicToggleImage").objectReferenceValue = music.Image; serialized.FindProperty("hapticsToggleButton").objectReferenceValue = haptics.Button; serialized.FindProperty("hapticsToggleText").objectReferenceValue = haptics.Label; serialized.FindProperty("hapticsToggleImage").objectReferenceValue = haptics.Image; serialized.FindProperty("resetProgressButton").objectReferenceValue = reset; serialized.FindProperty("resetConfirmDialog").objectReferenceValue = confirm; serialized.FindProperty("resetConfirmCancelButton").objectReferenceValue = cancel; serialized.FindProperty("resetConfirmOkButton").objectReferenceValue = ok; serialized.ApplyModifiedPropertiesWithoutUndo(); root.SetActive(false); return modal;
+            serialized.FindProperty("modalCard").objectReferenceValue = card; serialized.FindProperty("closeButton").objectReferenceValue = close; serialized.FindProperty("hapticsToggleButton").objectReferenceValue = haptics.Button; serialized.FindProperty("hapticsToggleText").objectReferenceValue = haptics.Label; serialized.FindProperty("hapticsToggleImage").objectReferenceValue = haptics.Image; serialized.FindProperty("resetProgressButton").objectReferenceValue = reset; serialized.FindProperty("resetConfirmDialog").objectReferenceValue = confirm; serialized.FindProperty("resetConfirmCancelButton").objectReferenceValue = cancel; serialized.FindProperty("resetConfirmOkButton").objectReferenceValue = ok; serialized.ApplyModifiedPropertiesWithoutUndo(); root.SetActive(false); return modal;
         }
 
         private static ToggleRow CreateSettingRow(Transform parent, string title, Vector2 position, Sprite pill)
@@ -424,9 +430,9 @@ namespace ArrowMaze.Editor
         private static void RemoveObjectNamed(string name) { var legacy = GameObject.Find(name); if (legacy != null) Object.DestroyImmediate(legacy); }
         private static void Stretch(RectTransform rect, Vector2 offsetMin, Vector2 offsetMax) { rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = offsetMin; rect.offsetMax = offsetMax; }
         private static void Save(UnityEngine.SceneManagement.Scene scene, string label) { EditorSceneManager.MarkSceneDirty(scene); EditorSceneManager.SaveScene(scene); Debug.Log("Tap Away Cars: " + label + " saved."); }
-        private static Art LoadArt() => new Art { ButtonCircle = LoadSprite("Assets/_Project/Sprites/UI/button_circle.png"), Pill = LoadSprite("Assets/_Project/Sprites/UI/badge_pill.png"), Card = LoadSprite("Assets/_Project/Sprites/UI/card_board_bg.png"), SelectionGlow = LoadSprite("Assets/_Project/Sprites/UI/selection_glow.png"), Settings = LoadSprite("Assets/_Project/Sprites/UI/icon_settings.png"), Back = LoadSprite("Assets/_Project/Sprites/UI/icon_back.png"), BlueCar = LoadSprite("Assets/_Project/Sprites/Cars/car_blue.png"), RedCar = LoadSprite("Assets/_Project/Sprites/Cars/car_red.png"), YellowCar = LoadSprite("Assets/_Project/Sprites/Cars/car_yellow.png"), PurpleCar = LoadSprite("Assets/_Project/Sprites/Cars/car_purple.png"), Road = LoadSprite("Assets/_Project/Sprites/Roads/road_straight_v.png"), Exit = LoadSprite("Assets/_Project/Sprites/Props/exit_gate.png"), StarFull = LoadSprite("Assets/_Project/Sprites/UI/star_full.png"), StarEmpty = LoadSprite("Assets/_Project/Sprites/UI/star_empty.png") };
+        private static Art LoadArt() => new Art { ButtonCircle = LoadSprite("Assets/_Project/Sprites/UI/button_circle.png"), Pill = LoadSprite("Assets/_Project/Sprites/UI/badge_pill.png"), Card = LoadSprite("Assets/_Project/Sprites/UI/card_board_bg.png"), SelectionGlow = LoadSprite("Assets/_Project/Sprites/UI/selection_glow.png"), Settings = LoadSprite("Assets/_Project/Sprites/UI/icon_settings.png"), Back = LoadSprite("Assets/_Project/Sprites/UI/icon_back.png"), BlueCar = LoadSprite("Assets/_Project/Sprites/Cars/car_blue.png"), RedCar = LoadSprite("Assets/_Project/Sprites/Cars/car_red.png"), YellowCar = LoadSprite("Assets/_Project/Sprites/Cars/car_yellow.png"), PurpleCar = LoadSprite("Assets/_Project/Sprites/Cars/car_purple.png"), Road = LoadSprite("Assets/_Project/Sprites/Roads/road_straight_v.png"), HeroRoad = LoadSprite("Assets/_Project/Sprites/Roads/road_straight_h.png"), Exit = LoadSprite("Assets/_Project/Sprites/Props/exit_gate.png"), StarFull = LoadSprite("Assets/_Project/Sprites/UI/star_full.png"), StarEmpty = LoadSprite("Assets/_Project/Sprites/UI/star_empty.png") };
         private static Sprite LoadSprite(string path) => AssetDatabase.LoadAssetAtPath<Sprite>(path);
         private struct ToggleRow { public readonly Button Button; public readonly TMP_Text Label; public readonly Image Image; public ToggleRow(Button button, TMP_Text label, Image image) { Button = button; Label = label; Image = image; } }
-        private sealed class Art { public Sprite ButtonCircle; public Sprite Pill; public Sprite Card; public Sprite SelectionGlow; public Sprite Settings; public Sprite Back; public Sprite BlueCar; public Sprite RedCar; public Sprite YellowCar; public Sprite PurpleCar; public Sprite Road; public Sprite Exit; public Sprite StarFull; public Sprite StarEmpty; }
+        private sealed class Art { public Sprite ButtonCircle; public Sprite Pill; public Sprite Card; public Sprite SelectionGlow; public Sprite Settings; public Sprite Back; public Sprite BlueCar; public Sprite RedCar; public Sprite YellowCar; public Sprite PurpleCar; public Sprite Road; public Sprite HeroRoad; public Sprite Exit; public Sprite StarFull; public Sprite StarEmpty; }
     }
 }

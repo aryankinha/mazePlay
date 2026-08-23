@@ -20,6 +20,9 @@ namespace ArrowMaze.Gameplay
         private LevelDefinition currentDefinition;
         private int wrongTaps;
         private bool levelFinished;
+        private bool awaitingFinalExit;
+        private GridCoordinate finalCarCoordinate;
+        private int pendingStars;
 
         public event Action OnLevelStart;
         public event Action OnLevelWin;
@@ -95,6 +98,8 @@ namespace ArrowMaze.Gameplay
         {
             UnwireSystems();
             levelFinished = false;
+            awaitingFinalExit = false;
+            pendingStars = 0;
             wrongTaps = 0;
 
             var selectedLevel = useInspectorLevelForDevelopment ? inspectorLevelNumber : LevelSession.SelectedLevel;
@@ -103,7 +108,8 @@ namespace ArrowMaze.Gameplay
             pathValidator = new PathValidator(level);
 
             gridManager.TileTapped += RegisterTap;
-            pathValidator.OnCorrectTap += gridManager.PlayClearAnimation;
+            gridManager.CarExitAnimationCompleted += HandleCarExitAnimationCompleted;
+            pathValidator.OnCorrectTap += HandleCorrectTap;
             pathValidator.OnIncorrectTap += HandleIncorrectTap;
             pathValidator.OnLevelCompleted += HandleLevelWin;
             livesManager.OnGameOver += HandleLevelLose;
@@ -132,7 +138,19 @@ namespace ArrowMaze.Gameplay
         {
             wrongTaps++;
             gridManager.PlayWrongTapFeedback(coordinate);
+#if UNITY_IOS || UNITY_ANDROID
+            if (PlayerProgress.HapticsEnabled)
+            {
+                Handheld.Vibrate();
+            }
+#endif
             livesManager.LoseLife();
+        }
+
+        private void HandleCorrectTap(GridCoordinate coordinate)
+        {
+            finalCarCoordinate = coordinate;
+            gridManager.PlayClearAnimation(coordinate);
         }
 
         private void HandleLevelWin()
@@ -143,10 +161,23 @@ namespace ArrowMaze.Gameplay
             }
 
             levelFinished = true;
+            awaitingFinalExit = true;
             gridManager.SetInputEnabled(false);
-            var stars = wrongTaps == 0 ? 3 : wrongTaps <= 2 ? 2 : 1;
-            PlayerProgress.CompleteLevel(currentDefinition.Id, stars);
-            gameplayHud?.ShowLevelComplete(stars, currentDefinition.Id < LevelCatalog.HighestCatalogLevel);
+            pendingStars = wrongTaps == 0 ? 3 : wrongTaps <= 2 ? 2 : 1;
+            // Persist the deterministic solve immediately; the presentation event waits
+            // for the specific final car to finish its viewport-aware departure.
+            PlayerProgress.CompleteLevel(currentDefinition.Id, pendingStars);
+        }
+
+        private void HandleCarExitAnimationCompleted(GridCoordinate coordinate)
+        {
+            if (!awaitingFinalExit || coordinate != finalCarCoordinate)
+            {
+                return;
+            }
+
+            awaitingFinalExit = false;
+            gameplayHud?.ShowLevelComplete(pendingStars, currentDefinition.Id < LevelCatalog.HighestCatalogLevel);
             Debug.Log("Tap Away Cars level complete!");
             OnLevelWin?.Invoke();
         }
@@ -170,6 +201,7 @@ namespace ArrowMaze.Gameplay
             if (gridManager != null)
             {
                 gridManager.TileTapped -= RegisterTap;
+                gridManager.CarExitAnimationCompleted -= HandleCarExitAnimationCompleted;
             }
 
             if (livesManager != null)
@@ -182,7 +214,7 @@ namespace ArrowMaze.Gameplay
                 return;
             }
 
-            pathValidator.OnCorrectTap -= gridManager.PlayClearAnimation;
+            pathValidator.OnCorrectTap -= HandleCorrectTap;
             pathValidator.OnIncorrectTap -= HandleIncorrectTap;
             pathValidator.OnLevelCompleted -= HandleLevelWin;
             pathValidator = null;
