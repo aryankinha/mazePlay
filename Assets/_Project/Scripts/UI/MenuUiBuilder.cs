@@ -23,7 +23,7 @@ namespace ArrowMaze.UI
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1080, 1920);
             scaler.matchWidthOrHeight = 1f;
-            if (Object.FindFirstObjectByType<EventSystem>() == null)
+            if (Object.FindAnyObjectByType<EventSystem>() == null)
             {
                 new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
             }
@@ -49,7 +49,7 @@ namespace ArrowMaze.UI
             var text = go.GetComponent<TextMeshProUGUI>();
             text.font = TMP_Settings.defaultFontAsset;
             text.text = value; text.fontSize = fontSize; text.color = color; text.alignment = alignment;
-            text.enableWordWrapping = false;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
             return text;
         }
 

@@ -79,7 +79,13 @@ namespace ArrowMaze.UI
 
             if (progressBarFill != null)
             {
-                progressBarFill.fillAmount = Mathf.Clamp01((float)completedCount / LevelCatalog.HighestCatalogLevel);
+                var fill = Mathf.Clamp01((float)completedCount / LevelCatalog.HighestCatalogLevel);
+                progressBarFill.fillAmount = fill;
+                var rt = progressBarFill.rectTransform;
+                if (rt != null)
+                {
+                    rt.anchorMax = new Vector2(fill, 1f);
+                }
             }
         }
 

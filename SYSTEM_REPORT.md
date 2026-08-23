@@ -1,7 +1,7 @@
 # 📊 Comprehensive System & Architecture Report: Tap Away Cars
 
-**Document Version:** 1.3.0  
-**Last Updated:** August 19, 2026  
+**Document Version:** 1.4.0  
+**Last Updated:** August 20, 2026  
 **Target Repository:** `/Users/aryankinha/Documents/Aryan/Unity/arrowMaze`  
 **Engine & Platform:** Unity 6000.5.8f1 (6000.5.8f1-5cb7df797b7d) | macOS / iOS / Android  
 
@@ -274,6 +274,12 @@ Canvas (Screen Space - Camera, Scaler: 1080×1920)
 ├───────────────────────────────────────┼─────────────────────────────────────────────────────────────┼────────────┤
 │ 8. Missing star font glyphs (\u2605)  │ Default LiberationSans SDF lacked unicode star glyph.       │ FIXED ✅   │
 │                                       │ Replaced with vector-sharp star_full and star_empty sprites.│            │
+├───────────────────────────────────────┼─────────────────────────────────────────────────────────────┼────────────┤
+│ 9. Clustered text & overlapping UI    │ Overlapping titles, oversized cars protruding from card,    │ FIXED ✅   │
+│                                       │ pinched progress bar, and 0-border sprite scaling.          │            │
+│                                       │ Configured 9-slice borders on badge_pill & card_board_bg,   │            │
+│                                       │ restructured layout hierarchy with generous vertical rhythm,│            │
+│                                       │ and adjusted car proportions within asphalt road bounds.    │            │
 └───────────────────────────────────────┴─────────────────────────────────────────────────────────────┴────────────┘
 ```
 

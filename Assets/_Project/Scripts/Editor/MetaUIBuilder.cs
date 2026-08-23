@@ -47,6 +47,37 @@ namespace ArrowMaze.Editor
             Save(scene, "Main Menu");
         }
 
+        [MenuItem("Tools/Capture Screen Preview")]
+        public static void CapturePreview()
+        {
+            var sceneName = EditorSceneManager.GetActiveScene().name;
+            var path = $"/Users/aryankinha/.gemini/antigravity-ide/brain/a5a2b4f5-0157-4fe3-9180-9d90147baba7/{sceneName.ToLowerInvariant()}_rendered.png";
+            var rt = new RenderTexture(540, 960, 24);
+            var canvas = Object.FindAnyObjectByType<Canvas>();
+            var cam = Camera.main;
+            if (canvas != null && cam != null)
+            {
+                var prevMode = canvas.renderMode;
+                var prevCam = canvas.worldCamera;
+                canvas.renderMode = RenderMode.ScreenSpaceCamera;
+                canvas.worldCamera = cam;
+                cam.targetTexture = rt;
+                cam.Render();
+                RenderTexture.active = rt;
+                var tex = new Texture2D(540, 960, TextureFormat.RGB24, false);
+                tex.ReadPixels(new Rect(0, 0, 540, 960), 0, 0);
+                tex.Apply();
+                System.IO.File.WriteAllBytes(path, tex.EncodeToPNG());
+                cam.targetTexture = null;
+                RenderTexture.active = null;
+                Object.DestroyImmediate(rt);
+                Object.DestroyImmediate(tex);
+                canvas.renderMode = prevMode;
+                canvas.worldCamera = prevCam;
+                Debug.Log("Captured screen preview to: " + path);
+            }
+        }
+
         [MenuItem("Tools/Rebuild Level Map UI")]
         public static void RebuildLevelMap()
         {
@@ -63,34 +94,31 @@ namespace ArrowMaze.Editor
         private static void BuildMainMenu(Transform safeArea, Art art, MainMenuController controller)
         {
             CreateMenuBackdrop(safeArea, art);
-            var settings = CreateCircularButton(safeArea, "SettingsButton", new Vector2(-438f, 818f), 98f, art.ButtonCircle, art.Settings);
-            CreateText(safeArea, "Settings Caption", "SETTINGS", new Vector2(-438f, 748f), new Vector2(170f, 30f), 18f, Color.white, FontStyles.Bold);
+            var settings = CreateCircularButton(safeArea, "SettingsButton", new Vector2(-440f, 810f), 88f, art.ButtonCircle, art.Settings);
 
-            CreateLogoText(safeArea, "TAP AWAY", new Vector2(0f, 570f), 72f, Color.white, NavyDeep, .16f);
-            CreateLogoText(safeArea, "CARS", new Vector2(0f, 455f), 108f, Gold, GoldDark, .12f);
-            CreatePill(safeArea, "Tagline", new Vector2(0f, 365f), new Vector2(690f, 68f), Navy, art.Pill, false);
-            CreateText(safeArea, "Tagline Text", "Clear the traffic. One car at a time.", new Vector2(0f, 365f), new Vector2(660f, 42f), 27f, Color.white, FontStyles.Bold);
+            CreateLogoText(safeArea, "TAP AWAY", new Vector2(0f, 675f), 56f, Color.white, NavyDeep, .15f);
+            CreateLogoText(safeArea, "CARS", new Vector2(0f, 575f), 92f, Gold, GoldDark, .12f);
+            CreatePill(safeArea, "Tagline", new Vector2(0f, 490f), new Vector2(580f, 52f), new Color(0.04f, 0.12f, 0.28f, 0.45f), art.Pill, false);
+            CreateText(safeArea, "Tagline Text", "Clear the traffic. One car at a time.", new Vector2(0f, 490f), new Vector2(560f, 38f), 22f, Color.white, FontStyles.Bold);
             BuildDecorativeHero(safeArea, art);
 
-            var progress = CreateCard(safeArea, "Progress Card", new Vector2(0f, -285f), new Vector2(850f, 180f), Color.white, art.Card);
-            CreateText(progress.transform, "Progress Label", "YOUR JOURNEY", new Vector2(-205f, 50f), new Vector2(330f, 32f), 18f, TextMuted, FontStyles.Bold, TextAlignmentOptions.MidlineLeft);
-            var progressLevel = CreateText(progress.transform, "Progress Level", "LEVEL 1 OF 23", new Vector2(-175f, 8f), new Vector2(360f, 44f), 29f, TextDark, FontStyles.Bold, TextAlignmentOptions.MidlineLeft);
-            var progressStars = CreateText(progress.transform, "Progress Stars", "0 / 69 STARS", new Vector2(210f, 8f), new Vector2(330f, 40f), 25f, GoldDark, FontStyles.Bold, TextAlignmentOptions.MidlineRight);
-            var barBackground = CreatePill(progress.transform, "Progress Bar Background", new Vector2(0f, -58f), new Vector2(690f, 20f), new Color32(211, 223, 238, 255), art.Pill, false);
-            var fill = CreatePill(barBackground.transform, "Progress Bar Fill", Vector2.zero, Vector2.zero, Blue, art.Pill, false);
+            var progress = CreateCard(safeArea, "Progress Card", new Vector2(0f, -140f), new Vector2(870f, 180f), Color.white, art.Card);
+            CreateText(progress.transform, "Progress Label", "YOUR JOURNEY", new Vector2(-240f, 44f), new Vector2(330f, 28f), 16f, TextMuted, FontStyles.Bold, TextAlignmentOptions.MidlineLeft);
+            var progressLevel = CreateText(progress.transform, "Progress Level", "LEVEL 1 OF 23", new Vector2(-240f, 8f), new Vector2(330f, 38f), 26f, TextDark, FontStyles.Bold, TextAlignmentOptions.MidlineLeft);
+            CreateImage(progress.transform, "Progress Star Icon", art.StarFull, new Vector2(170f, 8f), new Vector2(30f, 30f));
+            var progressStars = CreateText(progress.transform, "Progress Stars", "0 / 69 STARS", new Vector2(285f, 8f), new Vector2(200f, 36f), 24f, GoldDark, FontStyles.Bold, TextAlignmentOptions.MidlineRight);
+            var barBackground = CreatePill(progress.transform, "Progress Bar Background", new Vector2(0f, -44f), new Vector2(750f, 26f), new Color32(220, 230, 242, 255), art.Card, false);
+            var fill = CreatePill(barBackground.transform, "Progress Bar Fill", Vector2.zero, Vector2.zero, Blue, art.Card, false);
             var fillRect = fill.rectTransform;
             fillRect.anchorMin = Vector2.zero;
-            fillRect.anchorMax = Vector2.one;
+            fillRect.anchorMax = new Vector2(0f, 1f);
             fillRect.offsetMin = Vector2.zero;
             fillRect.offsetMax = Vector2.zero;
-            fill.type = Image.Type.Filled;
-            fill.fillMethod = Image.FillMethod.Horizontal;
-            fill.fillAmount = 0f;
 
-            var continueButton = CreateActionButton(safeArea, "PlayContinueButton", new Vector2(0f, -510f), new Vector2(870f, 132f), Gold, GoldDark, art.Card, null, "CONTINUE", "LEVEL 1");
+            var continueButton = CreateActionButton(safeArea, "PlayContinueButton", new Vector2(0f, -360f), new Vector2(870f, 126f), Gold, GoldDark, art.Card, null, "CONTINUE", "LEVEL 1");
             var continueLabel = continueButton.transform.Find("Label").GetComponent<TMP_Text>();
             var continueSubtext = continueButton.transform.Find("Subtext").GetComponent<TMP_Text>();
-            var mapButton = CreateActionButton(safeArea, "LevelMapButton", new Vector2(0f, -680f), new Vector2(870f, 118f), Blue, Navy, art.Card, null, "LEVEL MAP", null);
+            var mapButton = CreateActionButton(safeArea, "LevelMapButton", new Vector2(0f, -515f), new Vector2(870f, 114f), Blue, Navy, art.Card, null, "LEVEL MAP", null);
             var settingsModal = CreateSettingsModal(safeArea, art);
 
             if (controller == null) controller = safeArea.GetComponentInParent<MainMenuController>();
@@ -204,15 +232,13 @@ namespace ArrowMaze.Editor
         {
             var sky = CreateFullScreenPanel(parent, "Sky", new Color32(44, 142, 241, 255));
             sky.transform.SetAsFirstSibling();
-            // This is a quiet footer fade, not a rounded UI card.  Using the badge sprite here
-            // made the whole bottom of the menu read as one oversized pill behind the buttons.
-            var ground = CreatePanel(parent, "Roadside Shadow", Vector2.zero, new Vector2(0f, 560f), new Color(0.02f, 0.11f, 0.27f, .82f), null, false);
+            var ground = CreatePanel(parent, "Roadside Shadow", Vector2.zero, new Vector2(0f, 720f), new Color(0.03f, 0.10f, 0.24f, 0.35f), null, false);
             ground.rectTransform.anchorMin = new Vector2(0f, 0f); ground.rectTransform.anchorMax = new Vector2(1f, 0f); ground.rectTransform.pivot = new Vector2(.5f, 0f); ground.rectTransform.anchoredPosition = Vector2.zero;
-            CreateCloud(parent, new Vector2(-355f, 610f), .9f, art.ButtonCircle);
-            CreateCloud(parent, new Vector2(360f, 560f), .72f, art.ButtonCircle);
-            CreateSkyline(parent, new Vector2(0f, 80f), new Vector2(1000f, 220f), art.Pill, new Color(.1f, .25f, .5f, .25f));
-            CreateTree(parent, new Vector2(-405f, 90f), .95f, art.ButtonCircle, art.Pill);
-            CreateTree(parent, new Vector2(410f, 105f), .82f, art.ButtonCircle, art.Pill);
+            CreateCloud(parent, new Vector2(-360f, 650f), .75f, art.ButtonCircle);
+            CreateCloud(parent, new Vector2(360f, 610f), .65f, art.ButtonCircle);
+            CreateSkyline(parent, new Vector2(0f, 90f), new Vector2(1000f, 200f), art.Pill, new Color(.1f, .25f, .5f, .20f));
+            CreateTree(parent, new Vector2(-435f, 190f), .85f, art.ButtonCircle, art.Pill);
+            CreateTree(parent, new Vector2(435f, 190f), .85f, art.ButtonCircle, art.Pill);
         }
 
         private static void CreateMapBackdrop(Transform parent, Art art)
@@ -224,8 +250,6 @@ namespace ArrowMaze.Editor
             CreateCloud(parent, new Vector2(-330f, 650f), .82f, art.ButtonCircle);
             CreateCloud(parent, new Vector2(310f, 520f), 1.05f, art.ButtonCircle);
             CreateSkyline(parent, new Vector2(0f, 305f), new Vector2(1080f, 265f), art.Pill, new Color(.3f, .52f, .75f, .18f));
-            // A flat translucent water layer keeps the route readable.  The previous badge
-            // sprite made this environmental layer look like two giant UI cards.
             var water = CreatePanel(parent, "Water", Vector2.zero, new Vector2(0f, 1060f), new Color(.42f, .78f, .93f, .16f), null, false);
             water.rectTransform.anchorMin = new Vector2(0f, 0f); water.rectTransform.anchorMax = new Vector2(1f, 0f); water.rectTransform.pivot = new Vector2(.5f, 0f); water.rectTransform.anchoredPosition = Vector2.zero;
             CreateTree(parent, new Vector2(-420f, -125f), .76f, art.ButtonCircle, art.Pill);
@@ -235,17 +259,15 @@ namespace ArrowMaze.Editor
 
         private static void BuildDecorativeHero(Transform parent, Art art)
         {
-            var card = CreateCard(parent, "Traffic Hero", new Vector2(0f, 65f), new Vector2(870f, 435f), new Color(1f, 1f, 1f, .94f), art.Card);
-            // road_straight_v is authored vertically.  Its pre-rotation rect therefore needs
-            // vertical dimensions; rotating a horizontal rect created the tall strip seen in QA.
-            var shadow = CreatePanel(card.transform, "Road Shadow", new Vector2(0f, -25f), new Vector2(270f, 760f), new Color(0f, 0f, 0f, .22f), null, false); shadow.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 90f);
-            var road = CreatePanel(card.transform, "Decorative Highway", new Vector2(0f, -12f), new Vector2(245f, 715f), Color.white, art.Road, false); road.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 90f); road.type = Image.Type.Tiled;
-            CreateImage(card.transform, "Exit Gate", art.Exit, new Vector2(300f, 100f), new Vector2(145f, 74f));
-            CreateText(card.transform, "Hero Caption", "THE ROAD IS CLEARING", new Vector2(0f, 167f), new Vector2(620f, 32f), 18f, TextMuted, FontStyles.Bold);
-            CreateImage(card.transform, "Hero Car Blue", art.BlueCar, new Vector2(-70f, 8f), new Vector2(128f, 183f), -4f);
-            CreateImage(card.transform, "Hero Car Yellow", art.YellowCar, new Vector2(-265f, -54f), new Vector2(135f, 192f), 13f);
-            CreateImage(card.transform, "Hero Car Purple", art.PurpleCar, new Vector2(220f, -48f), new Vector2(134f, 192f), -12f);
-            var red = CreateImage(card.transform, "Hero Car Red", art.RedCar, new Vector2(58f, -108f), new Vector2(168f, 240f)); red.transform.SetAsLastSibling();
+            var card = CreateCard(parent, "Traffic Hero", new Vector2(0f, 195f), new Vector2(870f, 390f), new Color(1f, 1f, 1f, .94f), art.Card);
+            var shadow = CreatePanel(card.transform, "Road Shadow", new Vector2(0f, -5f), new Vector2(260f, 800f), new Color(0f, 0f, 0f, .20f), null, false); shadow.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+            var road = CreatePanel(card.transform, "Decorative Highway", new Vector2(0f, 5f), new Vector2(250f, 790f), Color.white, art.Road, false); road.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 90f); road.type = Image.Type.Tiled;
+            CreateImage(card.transform, "Exit Gate", art.Exit, new Vector2(295f, 95f), new Vector2(130f, 65f));
+            CreateText(card.transform, "Hero Caption", "THE ROAD IS CLEARING", new Vector2(0f, 155f), new Vector2(620f, 30f), 17f, TextMuted, FontStyles.Bold);
+            CreateImage(card.transform, "Hero Car Yellow", art.YellowCar, new Vector2(-235f, -8f), new Vector2(105f, 150f), 12f);
+            CreateImage(card.transform, "Hero Car Blue", art.BlueCar, new Vector2(-75f, 35f), new Vector2(105f, 150f), -4f);
+            CreateImage(card.transform, "Hero Car Purple", art.PurpleCar, new Vector2(225f, 28f), new Vector2(105f, 150f), -8f);
+            var red = CreateImage(card.transform, "Hero Car Red", art.RedCar, new Vector2(75f, -12f), new Vector2(110f, 158f), 0f); red.transform.SetAsLastSibling();
         }
 
         private static LevelNode CreateLevelNode(Transform parent, int levelId, Vector2 position, Art art)
@@ -352,7 +374,7 @@ namespace ArrowMaze.Editor
 
         private static TMP_Text CreateText(Transform parent, string name, string content, Vector2 position, Vector2 size, float fontSize, Color color, FontStyles style, TextAlignmentOptions alignment = TextAlignmentOptions.Center)
         {
-            var root = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI)); root.transform.SetParent(parent, false); var rect = root.GetComponent<RectTransform>(); rect.anchoredPosition = position; rect.sizeDelta = size; var text = root.GetComponent<TextMeshProUGUI>(); text.font = TMP_Settings.defaultFontAsset; text.text = content; text.fontSize = fontSize; text.color = color; text.fontStyle = style; text.alignment = alignment; text.enableWordWrapping = false; text.raycastTarget = false; return text;
+            var root = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI)); root.transform.SetParent(parent, false); var rect = root.GetComponent<RectTransform>(); rect.anchoredPosition = position; rect.sizeDelta = size; var text = root.GetComponent<TextMeshProUGUI>(); text.font = TMP_Settings.defaultFontAsset; text.text = content; text.fontSize = fontSize; text.color = color; text.fontStyle = style; text.alignment = alignment; text.textWrappingMode = TextWrappingModes.NoWrap; text.raycastTarget = false; return text;
         }
 
         private static void CreateLogoText(Transform parent, string content, Vector2 position, float fontSize, Color fill, Color outline, float outlineWidth)
@@ -384,7 +406,7 @@ namespace ArrowMaze.Editor
         private static GameObject PrepareCanvas(string canvasName)
         {
             var canvasObject = GameObject.Find(canvasName) ?? GameObject.Find("Canvas") ?? GameObject.Find("HUD"); if (canvasObject == null) canvasObject = new GameObject(canvasName, typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster)); canvasObject.name = canvasName;
-            var canvas = canvasObject.GetComponent<Canvas>(); canvas.renderMode = RenderMode.ScreenSpaceOverlay; canvas.worldCamera = null; canvas.targetDisplay = 0; var scaler = canvasObject.GetComponent<CanvasScaler>(); scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize; scaler.referenceResolution = new Vector2(1080f, 1920f); scaler.matchWidthOrHeight = .5f; if (canvasObject.GetComponent<GraphicRaycaster>() == null) canvasObject.AddComponent<GraphicRaycaster>(); if (Object.FindFirstObjectByType<EventSystem>() == null) new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule)); return canvasObject;
+            var canvas = canvasObject.GetComponent<Canvas>(); canvas.renderMode = RenderMode.ScreenSpaceOverlay; canvas.worldCamera = null; canvas.targetDisplay = 0; var scaler = canvasObject.GetComponent<CanvasScaler>(); scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize; scaler.referenceResolution = new Vector2(1080f, 1920f); scaler.matchWidthOrHeight = .5f; if (canvasObject.GetComponent<GraphicRaycaster>() == null) canvasObject.AddComponent<GraphicRaycaster>(); if (Object.FindAnyObjectByType<EventSystem>() == null) new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule)); return canvasObject;
         }
 
         private static Transform ClearAndGetSafeArea(Transform canvas)
