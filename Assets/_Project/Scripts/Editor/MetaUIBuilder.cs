@@ -99,34 +99,85 @@ namespace ArrowMaze.Editor
         private static void BuildMainMenu(Transform safeArea, Art art, MainMenuController controller)
         {
             CreateMenuBackdrop(safeArea, art);
-            var settings = CreateCircularButton(safeArea, "SettingsButton", new Vector2(-440f, 810f), 88f, art.ButtonCircle, art.Settings);
 
-            CreateLogoText(safeArea, "TAP AWAY", new Vector2(0f, 675f), 56f, Color.white, NavyDeep, .15f);
-            CreateLogoText(safeArea, "CARS", new Vector2(0f, 575f), 92f, Gold, GoldDark, .12f);
-            CreatePill(safeArea, "Tagline", new Vector2(0f, 490f), new Vector2(580f, 52f), new Color(0.04f, 0.12f, 0.28f, 0.45f), art.Pill, false);
-            CreateText(safeArea, "Tagline Text", "Clear the traffic. One car at a time.", new Vector2(0f, 490f), new Vector2(560f, 38f), 22f, Color.white, FontStyles.Bold);
-            BuildDecorativeHero(safeArea, art);
+            // Top-left Settings Button
+            var settings = CreateCircularButton(safeArea, "SettingsButton", new Vector2(-440f, 830f), 96f, art.ButtonCircle, art.Settings);
 
-            var continueButton = CreateActionButton(safeArea, "PlayContinueButton", new Vector2(0f, -175f), new Vector2(870f, 126f), Gold, GoldDark, art.Card, null, "CONTINUE", "LEVEL 1");
+            // Top-right Daily Reward Button
+            var dailyBtn = CreateCircularButton(safeArea, "DailyRewardButton", new Vector2(440f, 830f), 96f, art.ButtonCircle, art.IconGift);
+            var dailyImg = dailyBtn.GetComponent<Image>();
+            if (dailyImg != null) dailyImg.color = new Color32(42, 127, 235, 255);
+            var notifPill = CreatePill(dailyBtn.transform, "NotifBadge", new Vector2(28f, 28f), new Vector2(28f, 28f), new Color32(235, 87, 87, 255), art.ButtonCircle, true);
+            CreateText(notifPill.transform, "!", "!", Vector2.zero, new Vector2(26f, 26f), 18f, Color.white, FontStyles.Bold);
+            // "SETTINGS" label under left button
+            CreateText(safeArea, "Settings Label", "SETTINGS", new Vector2(-440f, 775f), new Vector2(120f, 22f), 14f, Color.white, FontStyles.Bold);
+            // "DAILY\nDAILY REWARD" label under right button
+            CreateText(safeArea, "Daily Label", "DAILY\nDAILY REWARD", new Vector2(440f, 768f), new Vector2(120f, 36f), 12f, Color.white, FontStyles.Bold);
+
+            // Logo — illustrated sprite instead of TMP text
+            if (art.LogoSprite != null)
+            {
+                CreateImage(safeArea, "Game Logo", art.LogoSprite, new Vector2(0f, 620f), new Vector2(780f, 340f));
+            }
+            else
+            {
+                CreateLogoText(safeArea, "TAP AWAY", new Vector2(0f, 675f), 56f, Color.white, NavyDeep, .15f);
+                CreateLogoText(safeArea, "CARS", new Vector2(0f, 575f), 92f, Gold, GoldDark, .12f);
+            }
+
+            // Tagline pill
+            CreatePill(safeArea, "Tagline", new Vector2(0f, 430f), new Vector2(580f, 48f), new Color(0.04f, 0.12f, 0.28f, 0.45f), art.Pill, false);
+            CreateText(safeArea, "Tagline Text", "Clear the traffic. One car at a time.", new Vector2(0f, 430f), new Vector2(560f, 36f), 21f, Color.white, FontStyles.Bold);
+
+            // Hero Showcase Section — edge-to-edge with 3/4 car sprites
+            var heroCarTransforms = BuildDecorativeHero(safeArea, art);
+
+            // EXIT sign in hero area
+            CreateImage(safeArea, "Exit Sign", art.Exit, new Vector2(280f, 350f), new Vector2(100f, 52f));
+
+            // Active Quest / Progression Card
+            var questCard = CreateCard(safeArea, "Quest Card", new Vector2(0f, -115f), new Vector2(920f, 160f), Color.white, art.Card);
+            CreateImage(questCard.transform, "Medal Icon", art.IconMedalRibbon, new Vector2(-375f, 5f), new Vector2(85f, 85f));
+            CreateText(questCard.transform, "Quest Label", "Continue", new Vector2(-140f, 32f), new Vector2(340f, 36f), 30f, TextDark, FontStyles.Bold, TextAlignmentOptions.MidlineLeft);
+            var questLevelText = CreateText(questCard.transform, "Quest Subtitle", "Level 1", new Vector2(-140f, 0f), new Vector2(340f, 28f), 22f, TextMuted, FontStyles.Bold, TextAlignmentOptions.MidlineLeft);
+            var questBarBg = CreatePill(questCard.transform, "Quest Bar Bg", new Vector2(-50f, -32f), new Vector2(460f, 20f), new Color32(220, 230, 242, 255), art.Card, false);
+            var questFill = CreatePill(questBarBg.transform, "Quest Bar Fill", Vector2.zero, Vector2.zero, Green, art.Card, false);
+            var questFillRect = questFill.rectTransform;
+            questFillRect.anchorMin = Vector2.zero;
+            questFillRect.anchorMax = new Vector2(0f, 1f);
+            questFillRect.offsetMin = Vector2.zero;
+            questFillRect.offsetMax = Vector2.zero;
+            var questStarsText = CreateText(questCard.transform, "Quest Stars Text", "0 / 69 STARS", new Vector2(-50f, -56f), new Vector2(460f, 22f), 15f, TextMuted, FontStyles.Bold, TextAlignmentOptions.MidlineLeft);
+            var watermarkCar = art.BlueCarHero != null ? art.BlueCarHero : art.BlueCar;
+            var watermark = CreateImage(questCard.transform, "Watermark Car", watermarkCar, new Vector2(365f, 0f), new Vector2(90f, 90f), 0f);
+            var watermarkImg = watermark.GetComponent<Image>();
+            if (watermarkImg != null) watermarkImg.color = new Color(1f, 1f, 1f, 0.85f);
+
+            // Primary CONTINUE CTA
+            var continueButton = CreateActionButton(safeArea, "PlayContinueButton", new Vector2(0f, -310f), new Vector2(920f, 130f), Gold, GoldDark, art.Card, art.IconPlay, "CONTINUE", "LEVEL 1");
             var continueLabel = continueButton.transform.Find("Label").GetComponent<TMP_Text>();
             var continueSubtext = continueButton.transform.Find("Subtext").GetComponent<TMP_Text>();
-            var mapButton = CreateActionButton(safeArea, "LevelMapButton", new Vector2(0f, -330f), new Vector2(870f, 114f), Blue, Navy, art.Card, null, "LEVEL MAP", null);
 
-            var progress = CreateCard(safeArea, "Progress Card", new Vector2(0f, -560f), new Vector2(870f, 210f), Color.white, art.Card);
-            CreateText(progress.transform, "Progress Label", "YOUR JOURNEY", new Vector2(-240f, 44f), new Vector2(330f, 28f), 16f, TextMuted, FontStyles.Bold, TextAlignmentOptions.MidlineLeft);
-            var progressLevel = CreateText(progress.transform, "Progress Level", "LEVEL 1 OF 23", new Vector2(-240f, 8f), new Vector2(330f, 38f), 26f, TextDark, FontStyles.Bold, TextAlignmentOptions.MidlineLeft);
-            CreateImage(progress.transform, "Progress Star Icon", art.StarFull, new Vector2(170f, 8f), new Vector2(30f, 30f));
-            var progressStars = CreateText(progress.transform, "Progress Stars", "0 / 69 STARS", new Vector2(285f, 8f), new Vector2(200f, 36f), 24f, GoldDark, FontStyles.Bold, TextAlignmentOptions.MidlineRight);
-            var barBackground = CreatePill(progress.transform, "Progress Bar Background", new Vector2(0f, -44f), new Vector2(750f, 26f), new Color32(220, 230, 242, 255), art.Card, false);
-            var fill = CreatePill(barBackground.transform, "Progress Bar Fill", Vector2.zero, Vector2.zero, Blue, art.Card, false);
-            var fillRect = fill.rectTransform;
-            fillRect.anchorMin = Vector2.zero;
-            fillRect.anchorMax = new Vector2(0f, 1f);
-            fillRect.offsetMin = Vector2.zero;
-            fillRect.offsetMax = Vector2.zero;
+            // Secondary LEVEL MAP CTA
+            var mapButton = CreateActionButton(safeArea, "LevelMapButton", new Vector2(0f, -455f), new Vector2(920f, 114f), Blue, Navy, art.Card, art.IconMapPin, "LEVEL MAP", null);
 
+            // Bottom Journey / Progress Footer Bar
+            var footerCard = CreateCard(safeArea, "Footer Progress Bar", new Vector2(0f, -590f), new Vector2(920f, 88f), NavyDeep, art.Card);
+            CreateImage(footerCard.transform, "Footer Star Icon", art.StarFull, new Vector2(-395f, 14f), new Vector2(30f, 30f));
+            var footerLevelText = CreateText(footerCard.transform, "Footer Level", "LEVEL 1 OF 23", new Vector2(-245f, 14f), new Vector2(260f, 30f), 21f, Color.white, FontStyles.Bold, TextAlignmentOptions.MidlineLeft);
+            var footerStarsText = CreateText(footerCard.transform, "Footer Stars", "0 / 69 STARS", new Vector2(290f, 14f), new Vector2(230f, 30f), 21f, Gold, FontStyles.Bold, TextAlignmentOptions.MidlineRight);
+            var footerBarBg = CreatePill(footerCard.transform, "Footer Bar Bg", new Vector2(0f, -18f), new Vector2(840f, 14f), new Color32(29, 45, 80, 255), art.Card, false);
+            var footerFill = CreatePill(footerBarBg.transform, "Footer Bar Fill", Vector2.zero, Vector2.zero, Gold, art.Card, false);
+            var footerFillRect = footerFill.rectTransform;
+            footerFillRect.anchorMin = Vector2.zero;
+            footerFillRect.anchorMax = new Vector2(0f, 1f);
+            footerFillRect.offsetMin = Vector2.zero;
+            footerFillRect.offsetMax = Vector2.zero;
+
+            // Settings Modal
             var settingsModal = CreateSettingsModal(safeArea, art);
 
+            // Wire MainMenuController Serialized Properties
             if (controller == null) controller = safeArea.GetComponentInParent<MainMenuController>();
             if (controller == null) controller = safeArea.parent.gameObject.AddComponent<MainMenuController>();
             var serialized = new SerializedObject(controller);
@@ -135,17 +186,34 @@ namespace ArrowMaze.Editor
             serialized.FindProperty("playContinueSubtext").objectReferenceValue = continueSubtext;
             serialized.FindProperty("levelMapButton").objectReferenceValue = mapButton;
             serialized.FindProperty("settingsButton").objectReferenceValue = settings;
-            serialized.FindProperty("progressLevelText").objectReferenceValue = progressLevel;
-            serialized.FindProperty("progressStarsText").objectReferenceValue = progressStars;
-            serialized.FindProperty("progressBarFill").objectReferenceValue = fill;
+
+            serialized.FindProperty("questCardLevelText").objectReferenceValue = questLevelText;
+            serialized.FindProperty("questCardStarsText").objectReferenceValue = questStarsText;
+            serialized.FindProperty("questCardProgressBarFill").objectReferenceValue = questFill;
+
+            serialized.FindProperty("progressLevelText").objectReferenceValue = footerLevelText;
+            serialized.FindProperty("progressStarsText").objectReferenceValue = footerStarsText;
+            serialized.FindProperty("progressBarFill").objectReferenceValue = footerFill;
+
+            var carArray = serialized.FindProperty("heroCars");
+            carArray.arraySize = heroCarTransforms.Length;
+            for (var i = 0; i < heroCarTransforms.Length; i++)
+            {
+                carArray.GetArrayElementAtIndex(i).objectReferenceValue = heroCarTransforms[i];
+            }
+
             serialized.FindProperty("settingsModal").objectReferenceValue = settingsModal;
             serialized.ApplyModifiedPropertiesWithoutUndo();
+
             UnityEventTools.AddPersistentListener(continueButton.onClick, controller.PlayContinue);
             UnityEventTools.AddPersistentListener(mapButton.onClick, controller.OpenLevelMap);
             UnityEventTools.AddPersistentListener(settings.onClick, controller.OpenSettings);
+            UnityEventTools.AddPersistentListener(dailyBtn.onClick, controller.OpenSettings);
+
             EditorUtility.SetDirty(continueButton);
             EditorUtility.SetDirty(mapButton);
             EditorUtility.SetDirty(settings);
+            EditorUtility.SetDirty(dailyBtn);
             EditorUtility.SetDirty(controller);
         }
 
@@ -236,15 +304,28 @@ namespace ArrowMaze.Editor
 
         private static void CreateMenuBackdrop(Transform parent, Art art)
         {
-            var sky = CreateFullScreenPanel(parent, "Sky", new Color32(44, 142, 241, 255));
-            sky.transform.SetAsFirstSibling();
-            var ground = CreatePanel(parent, "Roadside Shadow", Vector2.zero, new Vector2(0f, 720f), new Color(0.03f, 0.10f, 0.24f, 0.35f), null, false);
-            ground.rectTransform.anchorMin = new Vector2(0f, 0f); ground.rectTransform.anchorMax = new Vector2(1f, 0f); ground.rectTransform.pivot = new Vector2(.5f, 0f); ground.rectTransform.anchoredPosition = Vector2.zero;
-            CreateCloud(parent, new Vector2(-360f, 650f), .75f, art.ButtonCircle);
-            CreateCloud(parent, new Vector2(360f, 610f), .65f, art.ButtonCircle);
-            CreateSkyline(parent, new Vector2(0f, 90f), new Vector2(1000f, 200f), art.Pill, new Color(.1f, .25f, .5f, .20f));
-            CreateTree(parent, new Vector2(-435f, 190f), .85f, art.ButtonCircle, art.Pill);
-            CreateTree(parent, new Vector2(435f, 190f), .85f, art.ButtonCircle, art.Pill);
+            // Full-screen illustrated background instead of flat color + primitives
+            if (art.MainMenuBg != null)
+            {
+                var bg = CreateFullScreenPanel(parent, "Illustrated Background", Color.white);
+                bg.sprite = art.MainMenuBg;
+                bg.type = Image.Type.Simple;
+                bg.preserveAspect = false;
+                bg.transform.SetAsFirstSibling();
+            }
+            else
+            {
+                // Fallback: flat sky if illustrated bg is missing
+                var sky = CreateFullScreenPanel(parent, "Sky", new Color32(58, 155, 246, 255));
+                sky.transform.SetAsFirstSibling();
+            }
+
+            // Semi-transparent dark overlay at the bottom for UI readability
+            var uiOverlay = CreatePanel(parent, "Bottom Overlay", Vector2.zero, new Vector2(0f, 850f), new Color(0.06f, 0.12f, 0.30f, 0.35f), null, false);
+            uiOverlay.rectTransform.anchorMin = new Vector2(0f, 0f);
+            uiOverlay.rectTransform.anchorMax = new Vector2(1f, 0f);
+            uiOverlay.rectTransform.pivot = new Vector2(.5f, 0f);
+            uiOverlay.rectTransform.anchoredPosition = Vector2.zero;
         }
 
         private static void CreateMapBackdrop(Transform parent, Art art)
@@ -263,17 +344,38 @@ namespace ArrowMaze.Editor
             CreateTree(parent, new Vector2(-402f, -690f), .9f, art.ButtonCircle, art.Pill);
         }
 
-        private static void BuildDecorativeHero(Transform parent, Art art)
+        private static RectTransform[] BuildDecorativeHero(Transform parent, Art art)
         {
-            var card = CreateCard(parent, "Traffic Hero", new Vector2(0f, 195f), new Vector2(870f, 390f), new Color(1f, 1f, 1f, .94f), art.Card);
-            var shadow = CreatePanel(card.transform, "Road Shadow", new Vector2(0f, -5f), new Vector2(260f, 800f), new Color(0f, 0f, 0f, .20f), null, false); shadow.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 90f);
-            var road = CreatePanel(card.transform, "Decorative Highway", new Vector2(0f, 5f), new Vector2(790f, 250f), Color.white, art.HeroRoad, false); road.type = Image.Type.Simple;
-            CreateImage(card.transform, "Exit Gate", art.Exit, new Vector2(295f, 95f), new Vector2(130f, 65f));
-            CreateText(card.transform, "Hero Caption", "THE ROAD IS CLEARING", new Vector2(0f, 155f), new Vector2(620f, 30f), 17f, TextMuted, FontStyles.Bold);
-            CreateImage(card.transform, "Hero Car Yellow", art.YellowCar, new Vector2(-235f, -8f), new Vector2(105f, 150f), 12f);
-            CreateImage(card.transform, "Hero Car Blue", art.BlueCar, new Vector2(-75f, 35f), new Vector2(105f, 150f), -4f);
-            CreateImage(card.transform, "Hero Car Purple", art.PurpleCar, new Vector2(225f, 28f), new Vector2(105f, 150f), -8f);
-            var red = CreateImage(card.transform, "Hero Car Red", art.RedCar, new Vector2(75f, -12f), new Vector2(110f, 158f), 0f); red.transform.SetAsLastSibling();
+            // Edge-to-edge hero car showcase — no white card, cars float over the illustrated background
+            var heroRoot = new GameObject("Hero Cars", typeof(RectTransform));
+            heroRoot.transform.SetParent(parent, false);
+            var heroRect = heroRoot.GetComponent<RectTransform>();
+            heroRect.anchoredPosition = new Vector2(0f, 130f);
+            heroRect.sizeDelta = new Vector2(1080f, 600f);
+
+            // Use 3/4 front-facing hero car sprites if available, fall back to top-down
+            var redSprite = art.RedCarHero != null ? art.RedCarHero : art.RedCar;
+            var yellowSprite = art.YellowCarHero != null ? art.YellowCarHero : art.YellowCar;
+            var purpleSprite = art.PurpleCarHero != null ? art.PurpleCarHero : art.PurpleCar;
+            var blueSprite = art.BlueCarHero != null ? art.BlueCarHero : art.BlueCar;
+
+            // Blue car — background, smaller, centered behind red
+            var blue = CreateImage(heroRoot.transform, "Hero Car Blue", blueSprite, new Vector2(10f, 105f), new Vector2(170f, 170f), 0f);
+            // Yellow car — left, medium
+            var yellow = CreateImage(heroRoot.transform, "Hero Car Yellow", yellowSprite, new Vector2(-280f, -20f), new Vector2(280f, 280f), 0f);
+            // Purple car — right, medium
+            var purple = CreateImage(heroRoot.transform, "Hero Car Purple", purpleSprite, new Vector2(280f, -10f), new Vector2(280f, 280f), 0f);
+            // Red car — center foreground, largest and dominant
+            var red = CreateImage(heroRoot.transform, "Hero Car Red", redSprite, new Vector2(0f, -95f), new Vector2(380f, 380f), 0f);
+            red.transform.SetAsLastSibling();
+
+            return new RectTransform[]
+            {
+                red.GetComponent<RectTransform>(),
+                yellow.GetComponent<RectTransform>(),
+                purple.GetComponent<RectTransform>(),
+                blue.GetComponent<RectTransform>()
+            };
         }
 
         private static LevelNode CreateLevelNode(Transform parent, int levelId, Vector2 position, Art art)
@@ -333,18 +435,38 @@ namespace ArrowMaze.Editor
             CreatePanel(tree.transform, "Canopy C", new Vector2(0f, 72f * scale), new Vector2(82f, 82f) * scale, new Color32(79, 180, 87, 255), circle, true);
         }
 
-        private static Button CreateActionButton(Transform parent, string name, Vector2 position, Vector2 size, Color color, Color shadowColor, Sprite pill, string icon, string label, string subtext)
+        private static Button CreateActionButton(Transform parent, string name, Vector2 position, Vector2 size, Color color, Color shadowColor, Sprite pill, Sprite iconSprite, string label, string subtext)
         {
             CreatePill(parent, name + " Shadow", position + new Vector2(0f, -12f), size, shadowColor, pill, false);
-            var root = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button)); root.transform.SetParent(parent, false); var rect = root.GetComponent<RectTransform>(); rect.anchoredPosition = position; rect.sizeDelta = size;
-            var image = root.GetComponent<Image>(); image.sprite = pill; image.type = Image.Type.Sliced; image.color = color;
-            var button = root.GetComponent<Button>(); button.targetGraphic = image; var colors = button.colors; colors.normalColor = Color.white; colors.highlightedColor = new Color(1f, 1f, 1f, .92f); colors.pressedColor = new Color(.82f, .88f, 1f, 1f); button.colors = colors;
-            var hasIcon = !string.IsNullOrEmpty(icon);
-            if (hasIcon) CreateText(root.transform, "Icon", icon, new Vector2(-size.x * .36f, 0f), new Vector2(80f, 64f), 47f, Color.white, FontStyles.Bold);
-            var textPosition = hasIcon ? new Vector2(12f, 0f) : Vector2.zero;
-            var textWidth = hasIcon ? size.x - 180f : size.x - 64f;
-            CreateText(root.transform, "Label", label, string.IsNullOrEmpty(subtext) ? textPosition : textPosition + new Vector2(0f, 19f), new Vector2(textWidth, 48f), 37f, Color.white, FontStyles.Bold);
-            if (!string.IsNullOrEmpty(subtext)) CreateText(root.transform, "Subtext", subtext, textPosition + new Vector2(0f, -26f), new Vector2(textWidth, 34f), 22f, new Color(1f, 1f, 1f, .85f), FontStyles.Bold);
+            var root = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
+            root.transform.SetParent(parent, false);
+            var rect = root.GetComponent<RectTransform>();
+            rect.anchoredPosition = position;
+            rect.sizeDelta = size;
+            var image = root.GetComponent<Image>();
+            image.sprite = pill;
+            image.type = Image.Type.Sliced;
+            image.color = color;
+            var button = root.GetComponent<Button>();
+            button.targetGraphic = image;
+            var colors = button.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(1f, 1f, 1f, .92f);
+            colors.pressedColor = new Color(.82f, .88f, 1f, 1f);
+            button.colors = colors;
+
+            var hasIcon = iconSprite != null;
+            if (hasIcon)
+            {
+                CreateImage(root.transform, "Icon", iconSprite, new Vector2(-size.x * .36f, 0f), new Vector2(46f, 46f));
+            }
+            var textPosition = hasIcon ? new Vector2(24f, 0f) : Vector2.zero;
+            var textWidth = hasIcon ? size.x - 190f : size.x - 64f;
+            CreateText(root.transform, "Label", label, string.IsNullOrEmpty(subtext) ? textPosition : textPosition + new Vector2(0f, 17f), new Vector2(textWidth, 48f), 37f, Color.white, FontStyles.Bold);
+            if (!string.IsNullOrEmpty(subtext))
+            {
+                CreateText(root.transform, "Subtext", subtext, textPosition + new Vector2(0f, -24f), new Vector2(textWidth, 34f), 22f, new Color(1f, 1f, 1f, .90f), FontStyles.Bold);
+            }
             return button;
         }
 
@@ -352,7 +474,7 @@ namespace ArrowMaze.Editor
         {
             CreatePanel(parent, name + " Shadow", position + new Vector2(0f, -8f), new Vector2(size, size), new Color(0f, .07f, .16f, .30f), circle, true);
             var root = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button)); root.transform.SetParent(parent, false); var rect = root.GetComponent<RectTransform>(); rect.anchoredPosition = position; rect.sizeDelta = new Vector2(size, size);
-            var image = root.GetComponent<Image>(); image.sprite = circle; image.color = Color.white; var button = root.GetComponent<Button>(); button.targetGraphic = image; CreateImage(root.transform, "Icon", icon, Vector2.zero, new Vector2(size * .47f, size * .47f)); return button;
+            var image = root.GetComponent<Image>(); image.sprite = circle; image.color = Color.white; var button = root.GetComponent<Button>(); button.targetGraphic = image; if (icon != null) CreateImage(root.transform, "Icon", icon, Vector2.zero, new Vector2(size * .48f, size * .48f)); return button;
         }
 
         private static Image CreateFullScreenPanel(Transform parent, string name, Color color)
@@ -434,9 +556,69 @@ namespace ArrowMaze.Editor
         private static void RemoveObjectNamed(string name) { var legacy = GameObject.Find(name); if (legacy != null) Object.DestroyImmediate(legacy); }
         private static void Stretch(RectTransform rect, Vector2 offsetMin, Vector2 offsetMax) { rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = offsetMin; rect.offsetMax = offsetMax; }
         private static void Save(UnityEngine.SceneManagement.Scene scene, string label) { EditorSceneManager.MarkSceneDirty(scene); EditorSceneManager.SaveScene(scene); Debug.Log("Tap Away Cars: " + label + " saved."); }
-        private static Art LoadArt() => new Art { ButtonCircle = LoadSprite("Assets/_Project/Sprites/UI/button_circle.png"), Pill = LoadSprite("Assets/_Project/Sprites/UI/badge_pill.png"), Card = LoadSprite("Assets/_Project/Sprites/UI/card_board_bg.png"), SelectionGlow = LoadSprite("Assets/_Project/Sprites/UI/selection_glow.png"), Settings = LoadSprite("Assets/_Project/Sprites/UI/icon_settings.png"), Back = LoadSprite("Assets/_Project/Sprites/UI/icon_back.png"), BlueCar = LoadSprite("Assets/_Project/Sprites/Cars/car_blue.png"), RedCar = LoadSprite("Assets/_Project/Sprites/Cars/car_red.png"), YellowCar = LoadSprite("Assets/_Project/Sprites/Cars/car_yellow.png"), PurpleCar = LoadSprite("Assets/_Project/Sprites/Cars/car_purple.png"), Road = LoadSprite("Assets/_Project/Sprites/Roads/road_straight_v.png"), HeroRoad = LoadSprite("Assets/_Project/Sprites/Roads/road_straight_h.png"), Exit = LoadSprite("Assets/_Project/Sprites/Props/exit_gate.png"), StarFull = LoadSprite("Assets/_Project/Sprites/UI/star_full.png"), StarEmpty = LoadSprite("Assets/_Project/Sprites/UI/star_empty.png") };
+        private static Art LoadArt() => new Art
+        {
+            ButtonCircle = LoadSprite("Assets/_Project/Sprites/UI/button_circle.png"),
+            Pill = LoadSprite("Assets/_Project/Sprites/UI/badge_pill.png"),
+            Card = LoadSprite("Assets/_Project/Sprites/UI/card_board_bg.png"),
+            SelectionGlow = LoadSprite("Assets/_Project/Sprites/UI/selection_glow.png"),
+            Settings = LoadSprite("Assets/_Project/Sprites/UI/icon_settings.png"),
+            Back = LoadSprite("Assets/_Project/Sprites/UI/icon_back.png"),
+            BlueCar = LoadSprite("Assets/_Project/Sprites/Cars/car_blue.png"),
+            RedCar = LoadSprite("Assets/_Project/Sprites/Cars/car_red.png"),
+            YellowCar = LoadSprite("Assets/_Project/Sprites/Cars/car_yellow.png"),
+            PurpleCar = LoadSprite("Assets/_Project/Sprites/Cars/car_purple.png"),
+            Road = LoadSprite("Assets/_Project/Sprites/Roads/road_straight_v.png"),
+            HeroRoad = LoadSprite("Assets/_Project/Sprites/Roads/road_straight_h.png"),
+            Exit = LoadSprite("Assets/_Project/Sprites/Props/exit_gate.png"),
+            StarFull = LoadSprite("Assets/_Project/Sprites/UI/star_full.png"),
+            StarEmpty = LoadSprite("Assets/_Project/Sprites/UI/star_empty.png"),
+            IconPlay = LoadSprite("Assets/_Project/Sprites/UI/icon_play.png"),
+            IconMapPin = LoadSprite("Assets/_Project/Sprites/UI/icon_map_pin.png"),
+            IconMedalRibbon = LoadSprite("Assets/_Project/Sprites/UI/icon_medal_ribbon.png"),
+            IconGift = LoadSprite("Assets/_Project/Sprites/UI/icon_gift.png"),
+            HighwayPerspective = LoadSprite("Assets/_Project/Sprites/Environment/highway_perspective.png"),
+            CitySkylineDistant = LoadSprite("Assets/_Project/Sprites/Environment/city_skyline_distant.png"),
+            // Illustrated assets
+            MainMenuBg = LoadSprite("Assets/_Project/Sprites/Hero/main_menu_bg.png"),
+            LogoSprite = LoadSprite("Assets/_Project/Sprites/UI/logo_tap_away_cars.png"),
+            RedCarHero = LoadSprite("Assets/_Project/Sprites/Hero/car_red_hero.png"),
+            YellowCarHero = LoadSprite("Assets/_Project/Sprites/Hero/car_yellow_hero.png"),
+            PurpleCarHero = LoadSprite("Assets/_Project/Sprites/Hero/car_purple_hero.png"),
+            BlueCarHero = LoadSprite("Assets/_Project/Sprites/Hero/car_blue_hero.png")
+        };
         private static Sprite LoadSprite(string path) => AssetDatabase.LoadAssetAtPath<Sprite>(path);
         private struct ToggleRow { public readonly Button Button; public readonly TMP_Text Label; public readonly Image Image; public readonly RectTransform Knob; public ToggleRow(Button button, TMP_Text label, Image image, RectTransform knob) { Button = button; Label = label; Image = image; Knob = knob; } }
-        private sealed class Art { public Sprite ButtonCircle; public Sprite Pill; public Sprite Card; public Sprite SelectionGlow; public Sprite Settings; public Sprite Back; public Sprite BlueCar; public Sprite RedCar; public Sprite YellowCar; public Sprite PurpleCar; public Sprite Road; public Sprite HeroRoad; public Sprite Exit; public Sprite StarFull; public Sprite StarEmpty; }
+        private sealed class Art
+        {
+            public Sprite ButtonCircle;
+            public Sprite Pill;
+            public Sprite Card;
+            public Sprite SelectionGlow;
+            public Sprite Settings;
+            public Sprite Back;
+            public Sprite BlueCar;
+            public Sprite RedCar;
+            public Sprite YellowCar;
+            public Sprite PurpleCar;
+            public Sprite Road;
+            public Sprite HeroRoad;
+            public Sprite Exit;
+            public Sprite StarFull;
+            public Sprite StarEmpty;
+            public Sprite IconPlay;
+            public Sprite IconMapPin;
+            public Sprite IconMedalRibbon;
+            public Sprite IconGift;
+            public Sprite HighwayPerspective;
+            public Sprite CitySkylineDistant;
+            // Illustrated assets
+            public Sprite MainMenuBg;
+            public Sprite LogoSprite;
+            public Sprite RedCarHero;
+            public Sprite YellowCarHero;
+            public Sprite PurpleCarHero;
+            public Sprite BlueCarHero;
+        }
     }
 }
