@@ -47,8 +47,8 @@ namespace ArrowMaze.Core
 
         internal MazeLevel(
             ArrowDirection[,] directions,
-            IList<GridCoordinate> constructionOrder,
-            IList<GridCoordinate> trapCoordinates,
+            IReadOnlyList<GridCoordinate> constructionOrder,
+            IReadOnlyList<GridCoordinate> trapCoordinates,
             int initialLegalTapCount,
             bool[,] hasCar = null,
             int seed = 0)
@@ -173,7 +173,17 @@ namespace ArrowMaze.Core
             return roadTopology ?? (roadTopology = RoadTopology.Build(this));
         }
 
-        private ReadOnlyCollection<GridCoordinate> CopyCoordinates(IList<GridCoordinate> source, string paramName)
+        internal ArrowDirection[,] CopyDirectionMatrix()
+        {
+            return (ArrowDirection[,])directions.Clone();
+        }
+
+        internal bool[,] CopyCarMatrix()
+        {
+            return (bool[,])hasCar.Clone();
+        }
+
+        private ReadOnlyCollection<GridCoordinate> CopyCoordinates(IReadOnlyList<GridCoordinate> source, string paramName)
         {
             var copied = new List<GridCoordinate>();
             if (source != null)
@@ -213,7 +223,9 @@ namespace ArrowMaze.Core
             int targetStartingBranchingFactor = 2,
             int maxGenerationAttempts = 160,
             int solverNodeLimit = 250000,
-            float carDensity = 0.50f)
+            float carDensity = 0.50f,
+            float minimumInterlinkFraction = 0.40f,
+            float minimumCrossFraction = 0.15f)
         {
             Rows = rows;
             Columns = columns;
@@ -223,6 +235,8 @@ namespace ArrowMaze.Core
             MaxGenerationAttempts = maxGenerationAttempts;
             SolverNodeLimit = solverNodeLimit;
             CarDensity = Math.Min(1f, Math.Max(0.25f, carDensity));
+            MinimumInterlinkFraction = Math.Min(1f, Math.Max(0f, minimumInterlinkFraction));
+            MinimumCrossFraction = Math.Min(1f, Math.Max(0f, minimumCrossFraction));
         }
 
         public int Rows { get; }
@@ -233,6 +247,19 @@ namespace ArrowMaze.Core
         public int MaxGenerationAttempts { get; }
         public int SolverNodeLimit { get; }
         public float CarDensity { get; }
+
+        /// <summary>
+        /// Floor for the fraction of cars whose straight-line path shares at least one
+        /// cell with another car's path. Boards below the floor are rejected, so no
+        /// generated level can ship as a set of fully private lanes.
+        /// </summary>
+        public float MinimumInterlinkFraction { get; }
+
+        /// <summary>
+        /// Floor for the stricter crossing fraction - cars whose path crosses a
+        /// perpendicularly oriented car's path. Keeps junctions mechanically real.
+        /// </summary>
+        public float MinimumCrossFraction { get; }
     }
 
     public static class MazeGenerator
@@ -332,7 +359,41 @@ namespace ArrowMaze.Core
                     initialLegalCount,
                     hasCar,
                     settings.Seed);
-                var solveResult = ChainPuzzleSolver.TrySolve(generated, settings.SolverNodeLimit);
+
+                var preSolve = ChainPuzzleSolver.TrySolve(generated, settings.SolverNodeLimit);
+                if (!preSolve.IsSolved)
+                {
+                    continue;
+                }
+
+                // Push the board toward genuine maze topology (crossing paths) while
+                // preserving the proven solution above; boards that still fall below
+                // the interlink floors are rejected so private-lane layouts never ship.
+                var raised = RaiseInterlinking(
+                    generated,
+                    preSolve.ClearOrder,
+                    CombineSeed(settings.Seed, 31337),
+                    settings.MinimumInterlinkFraction,
+                    settings.MinimumCrossFraction);
+                var postFractions = ComputePathFractions(raised);
+                if (postFractions.shared < settings.MinimumInterlinkFraction ||
+                    postFractions.cross < settings.MinimumCrossFraction)
+                {
+                    continue;
+                }
+
+                // When interlinking returned the board untouched its existing proof
+                // stands; otherwise re-verify the shipped board independently.
+                var solveResult = ReferenceEquals(raised, generated)
+                    ? preSolve
+                    : ChainPuzzleSolver.TrySolve(raised, settings.SolverNodeLimit);
+                if (!solveResult.IsSolved)
+                {
+                    continue;
+                }
+
+                generated = raised;
+                if (solveResult.IsSolved)
                 if (solveResult.IsSolved)
                 {
                     return generated;
@@ -346,6 +407,268 @@ namespace ArrowMaze.Core
         public static bool Solve(MazeLevel level, IReadOnlyList<GridCoordinate> tapOrder)
         {
             return level != null && IsLegalTapSequence(level, tapOrder) && tapOrder.Count == level.CarCount;
+        }
+
+        /// <summary>
+        /// Fraction of cars whose full straight-line path (start cell through exit)
+        /// shares at least one cell with a different car's path. Purely geometric;
+        /// independent of blocking or solvability.
+        /// </summary>
+        public static float ComputeSharedPathFraction(MazeLevel level)
+        {
+            return ComputePathFractions(level).shared;
+        }
+
+        /// <summary>
+        /// Strict subset of sharing: cars whose path crosses a perpendicularly
+        /// oriented car's path - genuine intersections rather than queues.
+        /// </summary>
+        public static float ComputeCrossPathFraction(MazeLevel level)
+        {
+            return ComputePathFractions(level).cross;
+        }
+
+        private static (float shared, float cross) ComputePathFractions(MazeLevel level)
+        {
+            if (level == null)
+            {
+                throw new ArgumentNullException(nameof(level));
+            }
+
+            var cars = new List<GridCoordinate>();
+            for (var row = 0; row < level.Rows; row++)
+            {
+                for (var column = 0; column < level.Columns; column++)
+                {
+                    var coordinate = new GridCoordinate(row, column);
+                    if (level.HasCar(coordinate))
+                    {
+                        cars.Add(coordinate);
+                    }
+                }
+            }
+
+            var total = cars.Count;
+            if (total == 0)
+            {
+                return (1f, 1f);
+            }
+
+            var horizontal = new bool[total];
+            var pathLengths = new int[total];
+            var cells = new GridCoordinate[total, Math.Max(level.Rows, level.Columns) + 1];
+            for (var index = 0; index < total; index++)
+            {
+                var direction = level.GetDirection(cars[index]);
+                horizontal[index] = direction == ArrowDirection.Left || direction == ArrowDirection.Right;
+                var current = cars[index];
+                var length = 0;
+                cells[index, length++] = current;
+                while (true)
+                {
+                    current = StraightLineLegality.Move(current, direction);
+                    if (!level.IsInBounds(current))
+                    {
+                        break;
+                    }
+
+                    cells[index, length++] = current;
+                }
+
+                pathLengths[index] = length;
+            }
+
+            var shared = 0;
+            var crossed = 0;
+            for (var a = 0; a < total; a++)
+            {
+                var touchesAnother = false;
+                var crossesAnother = false;
+                for (var b = 0; b < total && !(touchesAnother && crossesAnother); b++)
+                {
+                    if (a == b)
+                    {
+                        continue;
+                    }
+
+                    var touches = false;
+                    for (var i = 0; i < pathLengths[a] && !touches; i++)
+                    {
+                        for (var j = 0; j < pathLengths[b]; j++)
+                        {
+                            if (cells[a, i] == cells[b, j])
+                            {
+                                touches = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!touches)
+                    {
+                        continue;
+                    }
+
+                    touchesAnother = true;
+                    if (horizontal[a] != horizontal[b])
+                    {
+                        crossesAnother = true;
+                    }
+                }
+
+                if (touchesAnother)
+                {
+                    shared++;
+                }
+
+                if (crossesAnother)
+                {
+                    crossed++;
+                }
+            }
+
+            return ((float)shared / total, (float)crossed / total);
+        }
+
+        /// <summary>
+        /// Rewrites arrow directions so more car paths genuinely cross each other
+        /// while provably preserving one known solution order (pass it in from the
+        /// caller's own solve - this method never searches). Trap tiles keep their
+        /// directions and must remain initially illegal, and the board always keeps
+        /// at least two legal opening moves, so difficulty semantics survive.
+        /// Deterministic for a given source level and seed. Best effort: returns the
+        /// best board found even when targets are not fully reachable.
+        /// </summary>
+        public static MazeLevel RaiseInterlinking(
+            MazeLevel source,
+            IReadOnlyList<GridCoordinate> knownSolution,
+            int seed,
+            float minimumSharedFraction,
+            float minimumCrossFraction,
+            int maxAttempts = 900)
+        {
+            if (source == null)
+            {
+                throw new ArgumentNullException(nameof(source));
+            }
+
+            if (knownSolution == null || knownSolution.Count != source.CarCount || source.CarCount < 2)
+            {
+                return source;
+            }
+
+            var traps = new HashSet<GridCoordinate>(source.TrapCoordinates);
+            var rotatable = new List<GridCoordinate>();
+            for (var row = 0; row < source.Rows; row++)
+            {
+                for (var column = 0; column < source.Columns; column++)
+                {
+                    var coordinate = new GridCoordinate(row, column);
+                    if (source.HasCar(coordinate) && !traps.Contains(coordinate))
+                    {
+                        rotatable.Add(coordinate);
+                    }
+                }
+            }
+
+            if (rotatable.Count == 0)
+            {
+                return source;
+            }
+
+            var startFractions = ComputePathFractions(source);
+            if (startFractions.shared >= minimumSharedFraction &&
+                startFractions.cross >= minimumCrossFraction)
+            {
+                return source;
+            }
+
+            var minimumStartingMoves = Math.Min(source.InitialLegalTapCount, 2);
+            var bestDirs = source.CopyDirectionMatrix();
+            var bestCross = startFractions.cross;
+            var bestShared = startFractions.shared;
+            var random = new Random(seed);
+
+            for (var attempt = 0;
+                 attempt < maxAttempts && (bestCross < minimumCrossFraction || bestShared < minimumSharedFraction);
+                 attempt++)
+            {
+                var trialDirs = (ArrowDirection[,])bestDirs.Clone();
+                var coordinate = rotatable[random.Next(rotatable.Count)];
+                var rotation = 1 + random.Next(3);
+                trialDirs[coordinate.Row, coordinate.Column] =
+                    (ArrowDirection)(((int)trialDirs[coordinate.Row, coordinate.Column] + rotation) % 4);
+
+                var candidate = BuildLevelFrom(trialDirs, source);
+                var initialCleared = candidate.CreateInitialClearedState();
+
+                if (CountLegalCars(candidate, initialCleared) < minimumStartingMoves)
+                {
+                    continue;
+                }
+
+                var trapsPreserved = true;
+                foreach (var trap in source.TrapCoordinates)
+                {
+                    if (StraightLineLegality.IsLegalTap(candidate, initialCleared, trap))
+                    {
+                        trapsPreserved = false;
+                        break;
+                    }
+                }
+
+                if (!trapsPreserved || !SolutionRemainsLegal(candidate, knownSolution))
+                {
+                    continue;
+                }
+
+                var fractions = ComputePathFractions(candidate);
+                if (fractions.cross > bestCross + 0.0001f ||
+                    (Math.Abs(fractions.cross - bestCross) <= 0.0001f && fractions.shared > bestShared + 0.0001f))
+                {
+                    bestCross = fractions.cross;
+                    bestShared = fractions.shared;
+                    bestDirs = trialDirs;
+                }
+            }
+
+            var final = BuildLevelFrom(bestDirs, source);
+            var finalCleared = final.CreateInitialClearedState();
+            var finalLegalCount = CountLegalCars(final, finalCleared);
+            return new MazeLevel(
+                bestDirs,
+                source.ConstructionOrder,
+                source.TrapCoordinates,
+                finalLegalCount,
+                source.CopyCarMatrix(),
+                source.Seed);
+        }
+
+        private static MazeLevel BuildLevelFrom(ArrowDirection[,] directions, MazeLevel source)
+        {
+            return new MazeLevel(
+                directions,
+                source.ConstructionOrder,
+                source.TrapCoordinates,
+                source.InitialLegalTapCount,
+                source.CopyCarMatrix(),
+                source.Seed);
+        }
+
+        private static bool SolutionRemainsLegal(MazeLevel level, IReadOnlyList<GridCoordinate> order)
+        {
+            var cleared = level.CreateInitialClearedState();
+            foreach (var coordinate in order)
+            {
+                if (!StraightLineLegality.IsLegalTap(level, cleared, coordinate))
+                {
+                    return false;
+                }
+
+                cleared[coordinate.Row, coordinate.Column] = true;
+            }
+
+            return true;
         }
 
         public static bool IsLegalTapSequence(MazeLevel level, IReadOnlyList<GridCoordinate> tapOrder)

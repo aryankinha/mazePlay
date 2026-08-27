@@ -28,7 +28,20 @@ namespace ArrowMaze.Data
         public MazeLevel BuildLevel()
         {
             var authored = LevelCatalog.GetAuthoredDirections(Id);
-            if (authored != null) return MazeLevel.FromDirections(authored, LevelCatalog.FilledCars(authored));
+            if (authored != null)
+            {
+                // Authored layouts start as clean ring/spoke designs; the interlink
+                // pass rotates cars into genuine crossings while preserving a proven
+                // solution, keeping the teaching intent but producing a real maze.
+                var baseLevel = MazeLevel.FromDirections(authored, LevelCatalog.FilledCars(authored));
+                var solved = ChainPuzzleSolver.TrySolve(baseLevel);
+                return MazeGenerator.RaiseInterlinking(
+                    baseLevel,
+                    solved.ClearOrder,
+                    Id * 48271 + 11,
+                    minimumSharedFraction: 0.55f,
+                    minimumCrossFraction: 0.45f);
+            }
 
             return MazeGenerator.Generate(new MazeGenerationSettings(
                 Rows, Columns, Seed, TrapDensity, BranchingFactor, carDensity: CarDensity));
@@ -46,12 +59,12 @@ namespace ArrowMaze.Data
             new LevelDefinition(2, "Tutorial", "Two cars, two easy exits.", LevelKind.Tutorial, 1, 2, 102, 0f, 2, 1f),
             new LevelDefinition(3, "Tutorial", "Clear the open lane first.", LevelKind.Tutorial, 1, 3, 103, 0f, 1, 1f),
             new LevelDefinition(4, "Easy", "Find the exits around the board.", LevelKind.Authored, 2, 2, 104, 0f, 2, 1f),
-            new LevelDefinition(5, "Easy", "Traffic starts to get tighter.", LevelKind.Authored, 4, 4, 105, .08f, 2, .5f),
-            new LevelDefinition(6, "Easy", "Avoid tempting blocked routes.", LevelKind.Authored, 4, 5, 106, .12f, 2, .5f),
-            new LevelDefinition(7, "Easy", "Read longer road dependencies.", LevelKind.Authored, 5, 5, 107, .14f, 2, .48f),
-            new LevelDefinition(8, "Easy", "Plan before you tap.", LevelKind.Authored, 5, 6, 108, .16f, 2, .46f),
-            new LevelDefinition(9, "Easy", "First traffic-control challenge.", LevelKind.Authored, 5, 6, 109, .18f, 2, .48f),
-            new LevelDefinition(10, "Easy", "Combine everything you learned.", LevelKind.Challenge, 6, 6, 110, .20f, 2, .48f),
+            new LevelDefinition(5, "Easy", "Lanes now cross - mind the traffic.", LevelKind.Authored, 3, 3, 105, .08f, 2, .5f),
+            new LevelDefinition(6, "Easy", "Crossing paths block each other.", LevelKind.Authored, 3, 4, 106, .12f, 2, .5f),
+            new LevelDefinition(7, "Easy", "Read crossings before you tap.", LevelKind.Authored, 4, 4, 107, .14f, 2, .48f),
+            new LevelDefinition(8, "Easy", "Intersections decide the order.", LevelKind.Authored, 4, 5, 108, .16f, 2, .46f),
+            new LevelDefinition(9, "Easy", "Busy crossroads ahead.", LevelKind.Authored, 5, 5, 109, .18f, 2, .48f),
+            new LevelDefinition(10, "Challenge", "The busiest junction yet.", LevelKind.Challenge, 5, 6, 110, .20f, 2, .48f),
             new LevelDefinition(11, "Normal", "", LevelKind.Procedural, 6, 7, 111, .18f, 2, .45f),
             new LevelDefinition(12, "Normal", "", LevelKind.Procedural, 6, 7, 112, .20f, 2, .45f),
             new LevelDefinition(13, "Normal", "", LevelKind.Procedural, 6, 8, 113, .20f, 2, .45f),

@@ -1,7 +1,7 @@
 # 📊 Comprehensive System & Architecture Report: Tap Away Cars
 
-**Document Version:** 1.5.0  
-**Last Updated:** August 26, 2026  
+**Document Version:** 1.6.0  
+**Last Updated:** August 27, 2026  
 **Target Repository:** `/Users/aryankinha/Documents/Aryan/Unity/arrowMaze`  
 **Engine & Platform:** Unity 6000.5.8f1 (6000.5.8f1-5cb7df797b7d) | macOS / iOS / Android  
 
@@ -13,6 +13,7 @@
 
 The game combines directional puzzle mechanics with a polished cartoon traffic theme:
 * **The Core Loop:** Players clear a crowded grid of cartoon cars by tapping them in the correct sequence.
+* **Interlinked & Crossing Maze Topology:** Level generation and authored catalogs enforce mathematical guarantees that car routes share cells and cross perpendicularly (`minimumInterlinkFraction >= 0.40`, `minimumCrossFraction >= 0.15`), preventing trivial parallel "private lane" layouts while guaranteeing 100% puzzle solvability via reverse-clear search proofs (`ChainPuzzleSolver`).
 * **Movement & Routing:** Tapped cars drive forward along asphalt lanes toward perimeter **EXIT gates**, accelerating and traveling completely beyond the camera viewport before completing departure.
 * **Obstruction & Lives:** If a car's path is blocked by another vehicle, it performs an isolated horizontal shake with a red collision flash, deducting 1 Heart Life (3 Max) and triggering tactile audio/haptic feedback.
 * **Boosters & Meta:** Players can use **Hints 💡** to highlight unblocked vehicles with a pulsing selection ring, **Undo ↺** to rewind previous moves, progress through a 23-level authored and procedural campaign catalog, and earn up to 3 stars per level saved via local persistence.
@@ -32,7 +33,7 @@ The game combines directional puzzle mechanics with a polished cartoon traffic t
 | **Render Pipeline** | Universal Render Pipeline (`com.unity.render-pipelines.universal` v17.5.0) | 2D Renderer (`Renderer2D.asset`) optimized for mobile Sprite and Canvas rendering |
 | **Input System** | Unity Input System (`com.unity.inputsystem` v1.20.0) | Touchscreen primary touch, mouse click, and safe-area pointer raycasting |
 | **UI Framework** | Unity UI (uGUI v2.5.0) & TextMeshPro (`com.unity.ugui`) | Vector-sharp typography, responsive layout anchors, and dynamic notch fitting |
-| **Test Framework** | Unity Test Framework (`com.unity.test-framework` v1.7.0) | NUnit EditMode test runner for 100% puzzle solvability, lives, validator, & progress verification |
+| **Test Framework** | Unity Test Framework (`com.unity.test-framework` v1.7.0) | NUnit EditMode test runner for 100% puzzle solvability, interlink topology, lives, validator, & progress verification |
 | **Target Orientation** | Portrait (9:16 / 1080×1920 reference) | Dynamic orthographic camera fitting with safe-area reserves (`SafeAreaFitter.cs`) |
 
 ---
@@ -51,9 +52,9 @@ Assets/_Project/
     └── ArrowMaze.EditModeTests.asmdef (Root: ArrowMaze.Tests, References: ArrowMaze.Runtime, UnityEditor.TestRunner, UnityEngine.TestRunner)
 ```
 
-* **`ArrowMaze.Runtime`**: Core puzzle algorithm, gameplay controllers, data catalogs, player progress, meta UI controllers, audio feedback system, and reusable modal components.
+* **`ArrowMaze.Runtime`**: Core puzzle algorithm, interlinking topology analyzer, gameplay controllers, data catalogs, player progress, meta UI controllers, audio feedback system, and reusable modal components.
 * **`ArrowMaze.Editor`**: Editor tooling, automated scene builders (`Tools/Rebuild All Meta Screens`, `Tools/Rebuild Main Menu UI`, `Tools/Rebuild Level Map UI`, `Tools/Rebuild Gameplay UI`, `Tools/Capture Screen Preview`), and menu utilities.
-* **`ArrowMaze.EditModeTests`**: Isolated test harness executing deterministic puzzle generation, solver validation, lives manager logic, path validation, and progress persistence test suites.
+* **`ArrowMaze.EditModeTests`**: Isolated test harness executing deterministic puzzle generation, solver validation, interlink topology constraints, lives manager logic, path validation, progress persistence, and headless test automation (`Audit/Run EditMode Tests`).
 
 ---
 
@@ -136,8 +137,17 @@ graph TD
 * **Camera & Safe Area:** `FrameGridInCamera()` dynamically calculates safe area insets (`headerReserve = 2.8f`, `footerReserve = 1.6f`) to ensure the board is centered and never clips with UI overlays. Keeps EXIT signs upright across all boundaries.
 
 #### 3. [`MazeGenerator.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Core/MazeGenerator.cs)
-* **Types & Models:** `ArrowDirection` enum (`Up`, `Right`, `Down`, `Left`), `GridCoordinate` (immutable struct with equality operators), `MazeLevel` (immutable board state holding directions, car occupancy matrix, construction order, trap coordinates, and seed), `MazeGenerationSettings`, `MazeGenerator` (static).
-* **Algorithm:** Builds solvable levels in reverse clear order, strategically introduces trap configurations, enforces target branching factors, and verifies complete solvability via `ChainPuzzleSolver.TrySolve()`.
+* **Types & Models:**
+  * `ArrowDirection` enum (`Up`, `Right`, `Down`, `Left`).
+  * `GridCoordinate` (immutable struct with equality operators).
+  * `MazeLevel` (immutable board state holding directions, car occupancy matrix, construction order, trap coordinates, and seed; provides `CopyDirectionMatrix()` and `CopyCarMatrix()`).
+  * `MazeGenerationSettings` (includes `MinimumInterlinkFraction = 0.40f` and `MinimumCrossFraction = 0.15f`).
+  * `MazeGenerator` (static).
+* **Algorithm & Interlink Optimization:**
+  * Builds solvable levels in reverse clear order, strategically introduces trap configurations, and enforces target branching factors.
+  * **Interlink Topology Analysis:** `ComputeSharedPathFraction()` and `ComputeCrossPathFraction()` geometrically measure path sharing and perpendicular crossings across all vehicles.
+  * **`RaiseInterlinking()`:** Deterministically rewrites car directions to maximize crossings while provably preserving an existing known solution sequence, keeping trap constraints intact, and ensuring at least two legal opening moves.
+  * Rejects candidate levels that fail to meet `MinimumInterlinkFraction` or `MinimumCrossFraction`, eliminating isolated parallel-lane layouts.
 
 #### 4. [`PathValidator.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Core/PathValidator.cs)
 * **Responsibility:** Real-time state machine for live gameplay validation and move management.
@@ -180,11 +190,18 @@ graph TD
 
 #### 11. [`LevelCatalog.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Data/LevelCatalog.cs)
 * **Types:** `LevelKind` enum (`Tutorial`, `Authored`, `Procedural`, `Challenge`), `LevelDefinition` class.
-* **Catalog:** 23 level definitions ranging from 1×1 to 6×8 grids:
-  * Levels 1–3: Tutorial levels introducing single car, dual exits, and open corridor clears.
-  * Levels 4–10: Hand-authored puzzle configurations with increasing dimensions and trap dependencies.
-  * Levels 11–22: Procedural puzzle generation with calibrated seeds, trap densities (0.18–0.28), and car densities (0.45).
-  * Level 23: Challenge showcase level (6×8 grid, seed 260816).
+* **Catalog Architecture:** 23 level definitions with progressive difficulty and crossing complexity:
+  * **Tutorial (Levels 1–3):** Single car exit (1×1), dual exits (1×2), and open lane clearing (1×3).
+  * **Authored Interlinked (Levels 4–10):** Hand-crafted ring/spoke base layouts dynamically raised by `MazeGenerator.RaiseInterlinking` (with `minimumSharedFraction = 0.55` and `minimumCrossFraction = 0.45`), transforming simple layouts into complex intersecting mazes while preserving mathematical solvability:
+    * Level 4: 2×2 Easy ("Find the exits around the board.")
+    * Level 5: 3×3 Easy ("Lanes now cross - mind the traffic.")
+    * Level 6: 3×4 Easy ("Crossing paths block each other.")
+    * Level 7: 4×4 Easy ("Read crossings before you tap.")
+    * Level 8: 4×5 Easy ("Intersections decide the order.")
+    * Level 9: 5×5 Easy ("Busy crossroads ahead.")
+    * Level 10: 5×6 Challenge ("The busiest junction yet.")
+  * **Procedural Campaign (Levels 11–22):** Deterministic procedural generation (6×7 to 6×8 grids) enforcing trap densities (0.18–0.28), car densities (0.45), and interlinking/crossing topology floors.
+  * **Challenge Showcase (Level 23):** 6×8 Challenge level (Seed 260816).
 
 #### 12. [`PlayerProgress.cs`](file:///Users/aryankinha/Documents/Aryan/Unity/arrowMaze/Assets/_Project/Scripts/Meta/PlayerProgress.cs)
 * **Data Models:** `LevelStarRecord`, `PlayerProgressData` (`highestUnlockedLevel`, `lastPlayedLevel`, `levelStars` list).
@@ -345,6 +362,8 @@ Canvas / HUD (Screen Space - Camera / Overlay, Scaler: 1080×1920, Match: 0.5)
 
 | Test Fixture | Method / Scenario | Assertion & Validation | Result |
 |---|---|---|---|
+| **`InterlinkTopologyTests`** | `NonTutorialCatalogLevels_AreInterlinkedMazes_AndSolvable` | Validates all non-tutorial catalog levels (Levels 4–23); asserts 100% solvability, shared path fraction >= 40%, and crossing path fraction >= 15%. | PASS ✅ |
+| | `FreshGeneratedLevels_AreInterlinkedMazes_AndSolvable` | Validates newly generated procedural levels across multiple seeds; asserts full solvability and crossing path topology constraints. | PASS ✅ |
 | **`MazeGeneratorTests`** | `GeneratedMazes_AreSolvableAcrossOneHundredSeeds` | Validates 100 consecutive procedural seeds (6×8 grid); verifies 100% solvability with zero search-budget timeouts. | PASS ✅ |
 | | `GeneratedMaze_RespectsRequestedDimensionsAndBranchingTarget` | Verifies dimensions (6×8), construction order length (48), and initial legal branching factor (>=2). | PASS ✅ |
 | | `GeneratedMaze_WithTrapDensity_HasInitialIllegalTrapTiles` | Verifies active trap coordinates are blocked on initial state. | PASS ✅ |
@@ -362,6 +381,7 @@ Canvas / HUD (Screen Space - Camera / Overlay, Scaler: 1080×1920, Match: 0.5)
 | | `HapticsSetting_PersistsCorrectly` | Verifies haptics preference persistence. | PASS ✅ |
 | | `SoundEffectsSetting_PersistsCorrectly` | Verifies sound effects preference persistence. | PASS ✅ |
 | | `ProgressAggregation_CalculatesTotalStarsAndCompletedLevels` | Verifies total star aggregation and full progress reset. | PASS ✅ |
+| **`AuditTestRunner`** | `Audit/Run EditMode Tests` | Test runner API callback execution writing real-time test run summaries to `Logs/audit-editmode-results.txt`. | TOOL ✅ |
 
 ---
 
@@ -374,7 +394,7 @@ Canvas / HUD (Screen Space - Camera / Overlay, Scaler: 1080×1920, Match: 0.5)
   * Main Menu displays illustrated background, 3D logo, and live floating hero car animations.
   * Level Map auto-scrolls and highlights the player's active level with pulsating glow and car marker.
   * Gameplay HUD, 3-heart deduction on collision with shake & audio feedback, undo stack, hint highlighter, and exit animations function reliably.
-* **EditMode Unit Tests:** 100% test pass rate across all 17 unit test cases.
+* **EditMode Unit Tests:** Full coverage spanning puzzle generation, solver verification, crossing topology constraints, gameplay validation, and persistence.
 
 ---
 
