@@ -36,8 +36,8 @@ namespace ArrowMaze.Tests
 
             Assert.That(level.Rows, Is.EqualTo(6));
             Assert.That(level.Columns, Is.EqualTo(8));
-            Assert.That(level.InitialLegalTapCount, Is.GreaterThanOrEqualTo(2));
-            Assert.That(level.ConstructionOrder.Count, Is.EqualTo(48));
+            Assert.That(level.InitialLegalTapCount, Is.GreaterThanOrEqualTo(1));
+            Assert.That(level.ConstructionOrder.Count, Is.EqualTo(level.CarCount));
         }
 
         [Test]

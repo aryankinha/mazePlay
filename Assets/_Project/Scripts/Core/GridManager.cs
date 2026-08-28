@@ -80,7 +80,9 @@ namespace ArrowMaze.Core
                         roadTopology.GetConnections(coordinate),
                         cellSize,
                         hasCar,
-                        colorIndex);
+                        colorIndex,
+                        level.GetRoute(coordinate),
+                        level.GetExitDirection(coordinate));
                     tile.TapRequested += HandleTileTapped;
                     tile.ExitAnimationCompleted += HandleCarExitAnimationCompleted;
                     tiles.Add(coordinate, tile);

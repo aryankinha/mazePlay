@@ -33,8 +33,8 @@ namespace ArrowMaze.Core
     }
 
     /// <summary>
-    /// Derives the visible road network from the exact straight routes cars can use.
-    /// This prevents artwork from suggesting turns or exits that gameplay cannot take.
+    /// Derives the visible road network from the exact multi-segment routes cars can use.
+    /// Connects road pieces at corners, straightaways, T-junctions, and crossroads.
     /// </summary>
     public sealed class RoadTopology
     {
@@ -62,7 +62,7 @@ namespace ArrowMaze.Core
                     var source = new GridCoordinate(row, column);
                     if (level.HasCar(source))
                     {
-                        topology.AddEscapeRoute(level, source, level.GetDirection(source));
+                        topology.AddCarRoute(level, source);
                     }
                 }
             }
@@ -80,25 +80,33 @@ namespace ArrowMaze.Core
             return exits.Contains(new RoadExit(coordinate, direction));
         }
 
-        private void AddEscapeRoute(MazeLevel level, GridCoordinate source, ArrowDirection direction)
-        {
-            var current = source;
-            while (true)
-            {
-                connections[current.Row, current.Column] |= ToConnection(direction);
-                var next = StraightLineLegality.Move(current, direction);
-                if (!level.IsInBounds(next))
-                {
-                    exits.Add(new RoadExit(current, direction));
-                    return;
-                }
+        public IReadOnlyCollection<RoadExit> Exits => exits;
 
-                connections[next.Row, next.Column] |= ToConnection(Opposite(direction));
-                current = next;
+        private void AddCarRoute(MazeLevel level, GridCoordinate source)
+        {
+            var route = level.GetRoute(source);
+            if (route == null || route.Count == 0)
+            {
+                return;
             }
+
+            for (var i = 0; i < route.Count - 1; i++)
+            {
+                var curr = route[i];
+                var next = route[i + 1];
+                var stepDir = StraightLineLegality.GetStepDirection(curr, next);
+
+                connections[curr.Row, curr.Column] |= ToConnection(stepDir);
+                connections[next.Row, next.Column] |= ToConnection(StraightLineLegality.Opposite(stepDir));
+            }
+
+            var lastCell = route[route.Count - 1];
+            var exitDirection = level.GetExitDirection(source);
+            connections[lastCell.Row, lastCell.Column] |= ToConnection(exitDirection);
+            exits.Add(new RoadExit(lastCell, exitDirection));
         }
 
-        private static RoadConnections ToConnection(ArrowDirection direction)
+        public static RoadConnections ToConnection(ArrowDirection direction)
         {
             switch (direction)
             {
@@ -106,18 +114,6 @@ namespace ArrowMaze.Core
                 case ArrowDirection.Right: return RoadConnections.Right;
                 case ArrowDirection.Down: return RoadConnections.Down;
                 case ArrowDirection.Left: return RoadConnections.Left;
-                default: throw new ArgumentOutOfRangeException(nameof(direction), direction, null);
-            }
-        }
-
-        private static ArrowDirection Opposite(ArrowDirection direction)
-        {
-            switch (direction)
-            {
-                case ArrowDirection.Up: return ArrowDirection.Down;
-                case ArrowDirection.Right: return ArrowDirection.Left;
-                case ArrowDirection.Down: return ArrowDirection.Up;
-                case ArrowDirection.Left: return ArrowDirection.Right;
                 default: throw new ArgumentOutOfRangeException(nameof(direction), direction, null);
             }
         }

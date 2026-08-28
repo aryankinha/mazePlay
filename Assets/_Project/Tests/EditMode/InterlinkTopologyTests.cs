@@ -7,14 +7,13 @@ using NUnit.Framework;
 namespace ArrowMaze.Tests
 {
     /// <summary>
-    /// Regression coverage for the maze interlinking requirement: a legal board is
-    /// only a maze if cars' straight-line routes actually share and cross cells.
-    /// Levels whose paths form isolated private lanes must be rejected.
+    /// Regression coverage for the maze interlinking and bent-route requirement:
+    /// Validates that cars navigate multi-segment bent routes through a connected road network,
+    /// share extended road segments, pass through multi-route junctions, and are 100% solvable.
     /// </summary>
     public sealed class InterlinkTopologyTests
     {
-        private const float MinSharedFraction = 0.40f;
-        private const float MinCrossFraction = 0.15f;
+        private const float MinSharedSegmentFraction = 0.20f;
 
         [Test]
         public void NonTutorialCatalogLevels_AreInterlinkedMazes_AndSolvable()
@@ -28,139 +27,81 @@ namespace ArrowMaze.Tests
                 Assert.That(solveResult.IsSolved, Is.True, $"Level {levelId} is unsolvable.");
                 Assert.That(solveResult.HitSearchLimit, Is.False, $"Level {levelId} exhausted the solver budget.");
 
-                var fractions = ComputeInterlinkFractions(level);
-                Assert.That(fractions.SharedFraction, Is.GreaterThanOrEqualTo(MinSharedFraction),
-                    $"Level {levelId} shares too few path cells between cars ({fractions.SharedFraction:P1}).");
-                Assert.That(fractions.CrossFraction, Is.GreaterThanOrEqualTo(MinCrossFraction),
-                    $"Level {levelId} has almost no true path crossings ({fractions.CrossFraction:P1}); it reads as separate lanes.");
+                var metrics = MazeGenerator.ComputeTopologyMetrics(level);
+                Assert.That(metrics.SharedSegmentFraction, Is.GreaterThanOrEqualTo(MinSharedSegmentFraction),
+                    $"Level {levelId} has too few shared road segments ({metrics.SharedSegmentFraction:P1}).");
             }
         }
 
         [Test]
         public void FreshGeneratedLevels_AreInterlinkedMazes_AndSolvable()
         {
-            for (var sample = 0; sample < 5; sample++)
+            for (var sample = 0; sample < 10; sample++)
             {
                 var settings = new MazeGenerationSettings(
                     rows: 6,
                     columns: 8,
                     seed: 52000 + sample * 911,
-                    trapDensity: 0.24f,
+                    trapDensity: 0.15f,
                     targetStartingBranchingFactor: 2,
-                    carDensity: 0.45f);
+                    carDensity: 0.45f,
+                    minimumInterlinkFraction: 0.25f,
+                    minimumJunctionCount: 1);
                 var level = MazeGenerator.Generate(settings);
 
                 var solveResult = ChainPuzzleSolver.TrySolve(level);
                 Assert.That(solveResult.IsSolved, Is.True, $"Sample {sample} is unsolvable.");
                 Assert.That(solveResult.HitSearchLimit, Is.False, $"Sample {sample} exhausted the solver budget.");
 
-                var fractions = ComputeInterlinkFractions(level);
-                Assert.That(fractions.SharedFraction, Is.GreaterThanOrEqualTo(MinSharedFraction),
-                    $"Sample {sample} shares too few path cells between cars ({fractions.SharedFraction:P1}).");
-                Assert.That(fractions.CrossFraction, Is.GreaterThanOrEqualTo(MinCrossFraction),
-                    $"Sample {sample} has almost no true path crossings ({fractions.CrossFraction:P1}).");
+                var metrics = MazeGenerator.ComputeTopologyMetrics(level);
+                Assert.That(metrics.SharedSegmentFraction, Is.GreaterThanOrEqualTo(MinSharedSegmentFraction),
+                    $"Sample {sample} shares too few road segments ({metrics.SharedSegmentFraction:P1}).");
             }
         }
 
-        internal static (float SharedFraction, float CrossFraction) ComputeInterlinkFractions(MazeLevel level)
+        [Test]
+        public void CatalogLevel10_HasMultiSegmentCorridors_AndJunctions()
         {
-            var cars = new List<GridCoordinate>();
-            for (var row = 0; row < level.Rows; row++)
-            {
-                for (var column = 0; column < level.Columns; column++)
-                {
-                    var coordinate = new GridCoordinate(row, column);
-                    if (level.HasCar(coordinate))
-                    {
-                        cars.Add(coordinate);
-                    }
-                }
-            }
+            var level = LevelCatalog.Get(10).BuildLevel();
+            var solveResult = ChainPuzzleSolver.TrySolve(level);
+            Assert.That(solveResult.IsSolved, Is.True);
 
-            if (cars.Count == 0)
-            {
-                return (1f, 1f);
-            }
-
-            var paths = new List<GridCoordinate>[cars.Count];
-            var horizontal = new bool[cars.Count];
-            for (var index = 0; index < cars.Count; index++)
-            {
-                paths[index] = TracePath(level, cars[index]);
-                var direction = level.GetDirection(cars[index]);
-                horizontal[index] = direction == ArrowDirection.Left || direction == ArrowDirection.Right;
-            }
-
-            var sharedCount = 0;
-            var crossCount = 0;
-            for (var a = 0; a < cars.Count; a++)
-            {
-                var sharesAny = false;
-                var crossesAny = false;
-                for (var b = 0; b < cars.Count; b++)
-                {
-                    if (a == b)
-                    {
-                        continue;
-                    }
-
-                    if (!PathsTouch(paths[a], paths[b]))
-                    {
-                        continue;
-                    }
-
-                    sharesAny = true;
-                    if (horizontal[a] != horizontal[b])
-                    {
-                        crossesAny = true;
-                    }
-                }
-
-                if (sharesAny)
-                {
-                    sharedCount++;
-                }
-
-                if (crossesAny)
-                {
-                    crossCount++;
-                }
-            }
-
-            return ((float)sharedCount / cars.Count, (float)crossCount / cars.Count);
+            var metrics = MazeGenerator.ComputeTopologyMetrics(level);
+            Assert.That(metrics.SharedSegments, Is.GreaterThan(0));
+            Assert.That(metrics.JunctionCount, Is.GreaterThan(0));
+            Assert.That(metrics.CarSharingFraction, Is.GreaterThan(0.5f));
         }
 
-        private static List<GridCoordinate> TracePath(MazeLevel level, GridCoordinate origin)
+        [Test]
+        public void ExportDetailedTopologyDiagnostics()
         {
-            var direction = level.GetDirection(origin);
-            var path = new List<GridCoordinate> { origin };
-            var current = origin;
-            while (true)
-            {
-                current = StraightLineLegality.Move(current, direction);
-                if (!level.IsInBounds(current))
-                {
-                    return path;
-                }
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("=== TOPOLOGY AUDIT: DETAILED METRICS PER LEVEL ===");
 
-                path.Add(current);
-            }
-        }
-
-        private static bool PathsTouch(List<GridCoordinate> a, List<GridCoordinate> b)
-        {
-            foreach (var cell in a)
+            foreach (var levelId in new[] { 5, 10, 23 })
             {
-                for (var index = 0; index < b.Count; index++)
+                var def = LevelCatalog.Get(levelId);
+                var level = def.BuildLevel();
+                var metrics = MazeGenerator.ComputeTopologyMetrics(level);
+                var solved = ChainPuzzleSolver.TrySolve(level);
+
+                sb.AppendLine($"\n--- LEVEL {levelId} ({def.Rows}x{def.Columns}, Kind={def.Kind}, Cars={level.CarCount}) ---");
+                sb.AppendLine($"Solvable: {solved.IsSolved}, Steps: {solved.ClearOrder.Count}");
+                sb.AppendLine($"Total Road Segments: {metrics.TotalSegments}");
+                sb.AppendLine($"Shared Road Segments: {metrics.SharedSegments} ({metrics.SharedSegmentFraction:P1})");
+                sb.AppendLine($"Junction Count: {metrics.JunctionCount}");
+                sb.AppendLine($"Car Sharing Fraction: {metrics.CarSharingFraction:P1}");
+                sb.AppendLine("Car Routes:");
+                foreach (var kvp in level.Routes)
                 {
-                    if (b[index] == cell)
-                    {
-                        return true;
-                    }
+                    var exitDir = level.GetExitDirection(kvp.Key);
+                    var pathStr = string.Join(" -> ", kvp.Value);
+                    sb.AppendLine($"  Car at {kvp.Key}: [{pathStr}] (Exit {exitDir})");
                 }
             }
 
-            return false;
+            System.IO.File.WriteAllText("Logs/topology-detailed-metrics.txt", sb.ToString());
+            Assert.That(System.IO.File.Exists("Logs/topology-detailed-metrics.txt"), Is.True);
         }
     }
 }

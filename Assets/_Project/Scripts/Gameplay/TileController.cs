@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using ArrowMaze.Core;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -11,7 +12,7 @@ namespace ArrowMaze.Gameplay
     public sealed class TileController : MonoBehaviour
     {
         private const float MinimumClearDuration = 0.30f;
-        private const float MaximumClearDuration = 0.78f;
+        private const float MaximumClearDuration = 1.80f;
         private const float WrongTapDuration = 0.20f;
         private const float ColliderInset = 0.95f;
 
@@ -37,6 +38,8 @@ namespace ArrowMaze.Gameplay
         private Coroutine clearDriveRoutine;
         private Vector3 carRestingScale = Vector3.one;
         private int carColorIndex;
+        private IReadOnlyList<GridCoordinate> route;
+        private ArrowDirection exitDirection;
 
         public event Action<GridCoordinate> TapRequested;
         public event Action<GridCoordinate> ExitAnimationCompleted;
@@ -67,12 +70,16 @@ namespace ArrowMaze.Gameplay
             RoadConnections roadConnections,
             float cellWorldSize,
             bool hasCar = true,
-            int colorIndex = 0)
+            int colorIndex = 0,
+            IReadOnlyList<GridCoordinate> route = null,
+            ArrowDirection exitDirection = ArrowDirection.Up)
         {
             Coordinate = coordinate;
             Direction = direction;
             this.hasCar = hasCar;
             this.carColorIndex = colorIndex;
+            this.route = route;
+            this.exitDirection = exitDirection;
             gameObject.name = $"Tile ({coordinate.Row}, {coordinate.Column})";
 
             EnsureVisualLayers();
@@ -179,17 +186,21 @@ namespace ArrowMaze.Gameplay
             HideHint();
             isCleared = false;
             acceptsInput = true;
-            tileCollider.enabled = true;
+            if (tileCollider != null)
+            {
+                tileCollider.enabled = true;
+            }
 
-            carTransform.localPosition = Vector3.zero;
-            carTransform.localScale = carRestingScale;
-            carRenderer.color = Color.white;
             carRenderer.enabled = true;
+            carRenderer.color = Color.white;
+            carTransform.localPosition = Vector3.zero;
+            carTransform.localRotation = Quaternion.Euler(0f, 0f, RotationFor(Direction));
+            carTransform.localScale = carRestingScale;
         }
 
         public void ShowHint()
         {
-            if (glowRenderer == null || isCleared || !hasCar)
+            if (isCleared || !hasCar)
             {
                 return;
             }
@@ -218,66 +229,130 @@ namespace ArrowMaze.Gameplay
 
         private IEnumerator HintGlowRoutine()
         {
+            if (glowRenderer == null)
+            {
+                yield break;
+            }
+
             glowRenderer.enabled = true;
+            glowRenderer.color = Color.white;
             var elapsed = 0f;
-            while (elapsed < 3f && !isCleared)
+
+            while (true)
             {
                 elapsed += Time.deltaTime;
-                var pulse = 0.85f + (Mathf.Sin(elapsed * 6f) * 0.15f);
-                if (glowTransform != null)
+                var pulse = 0.95f + (Mathf.Sin(elapsed * 6f) * 0.08f);
+                if (glowRenderer.sprite != null)
                 {
-                    // The glow texture has its own pixels-per-unit. Reusing raw cell size
-                    // here bypassed its sprite calibration and made the hint fill the screen.
                     var baseScale = ScaleSpriteToWorldSize(glowRenderer.sprite, cellSize * 1.1f);
                     glowTransform.localScale = Vector3.one * (baseScale * pulse);
                 }
                 yield return null;
             }
-
-            if (glowRenderer != null)
-            {
-                glowRenderer.enabled = false;
-            }
-
-            hintGlowRoutine = null;
         }
 
         private IEnumerator ClearDriveRoutine()
         {
+            var waypoints = BuildLocalWaypoints();
+            if (waypoints.Count < 2)
+            {
+                ExitAnimationCompleted?.Invoke(Coordinate);
+                carRenderer.enabled = false;
+                yield break;
+            }
+
+            // Calculate segment lengths and cumulative distances
+            var segmentLengths = new float[waypoints.Count - 1];
+            var cumulativeDist = new float[waypoints.Count];
+            cumulativeDist[0] = 0f;
+            var totalDistance = 0f;
+
+            for (var i = 0; i < waypoints.Count - 1; i++)
+            {
+                var len = Vector3.Distance(waypoints[i], waypoints[i + 1]);
+                segmentLengths[i] = len;
+                totalDistance += len;
+                cumulativeDist[i + 1] = totalDistance;
+            }
+
+            var duration = Mathf.Clamp(totalDistance / (cellSize * 7.5f), MinimumClearDuration, MaximumClearDuration);
             var elapsed = 0f;
-            var initialPos = carTransform.localPosition;
-            var driveDirection = VectorFor(Direction);
-            var travelDistance = CalculateOffscreenTravelDistance(driveDirection);
-            var targetPos = initialPos + ((Vector3)driveDirection * travelDistance);
-            var duration = Mathf.Clamp(travelDistance / 11f, MinimumClearDuration, MaximumClearDuration);
             var initialScale = carRestingScale;
+            var currentRotation = carTransform.localRotation;
 
             while (elapsed < duration)
             {
                 elapsed += Time.deltaTime;
                 var progress = Mathf.Clamp01(elapsed / duration);
-                // An ease-in makes the departure feel like a vehicle accelerating,
-                // while retaining a deterministic final position outside the camera.
                 var smoothProgress = Mathf.SmoothStep(0f, 1f, progress);
+                var currentDist = smoothProgress * totalDistance;
 
-                carTransform.localPosition = Vector3.Lerp(initialPos, targetPos, smoothProgress);
+                // Find active segment
+                var segIndex = 0;
+                for (var i = 0; i < waypoints.Count - 1; i++)
+                {
+                    if (currentDist <= cumulativeDist[i + 1] || i == waypoints.Count - 2)
+                    {
+                        segIndex = i;
+                        break;
+                    }
+                }
+
+                var segStartDist = cumulativeDist[segIndex];
+                var segLen = segmentLengths[segIndex];
+                var segFraction = segLen > 0.0001f ? Mathf.Clamp01((currentDist - segStartDist) / segLen) : 0f;
+
+                carTransform.localPosition = Vector3.Lerp(waypoints[segIndex], waypoints[segIndex + 1], segFraction);
+
+                // Smooth rotation to face forward along the current segment
+                var segDelta = waypoints[segIndex + 1] - waypoints[segIndex];
+                if (segDelta.sqrMagnitude > 0.001f)
+                {
+                    var targetRotZ = Mathf.Atan2(segDelta.y, segDelta.x) * Mathf.Rad2Deg - 90f;
+                    var targetRot = Quaternion.Euler(0f, 0f, targetRotZ);
+                    currentRotation = Quaternion.RotateTowards(currentRotation, targetRot, 720f * Time.deltaTime);
+                    carTransform.localRotation = currentRotation;
+                }
+
                 var launchPulse = 1f + (Mathf.Sin(Mathf.Min(progress, 0.28f) / 0.28f * Mathf.PI) * 0.06f);
                 carTransform.localScale = initialScale * launchPulse;
-                // Keep the vehicle visible through the gate and until its complete sprite bounds
-                // are beyond the viewport; fading earlier made it appear to vanish in empty space.
                 carRenderer.color = Color.white;
 
                 yield return null;
             }
 
             clearDriveRoutine = null;
-            // Notify while the renderer is still at the measured off-screen target so
-            // completion observers can verify the viewport contract deterministically.
             ExitAnimationCompleted?.Invoke(Coordinate);
             carRenderer.enabled = false;
             carTransform.localPosition = Vector3.zero;
             carTransform.localScale = initialScale;
             carRenderer.color = Color.white;
+        }
+
+        private List<Vector3> BuildLocalWaypoints()
+        {
+            var list = new List<Vector3>();
+            if (route != null && route.Count > 0)
+            {
+                foreach (var cell in route)
+                {
+                    var deltaCol = cell.Column - Coordinate.Column;
+                    var deltaRow = cell.Row - Coordinate.Row;
+                    list.Add(new Vector3(deltaCol * cellSize, -deltaRow * cellSize, 0f));
+                }
+            }
+            else
+            {
+                list.Add(Vector3.zero);
+            }
+
+            // Append offscreen exit point past the last cell
+            var lastPos = list[list.Count - 1];
+            var exitVec = VectorFor(exitDirection);
+            var travelDistance = CalculateOffscreenTravelDistance(exitVec);
+            list.Add(lastPos + ((Vector3)exitVec * travelDistance));
+
+            return list;
         }
 
         public void PlayWrongTapFeedback()
@@ -370,70 +445,107 @@ namespace ArrowMaze.Gameplay
             if (rootRenderer == null)
             {
                 rootRenderer = GetComponent<SpriteRenderer>();
+                if (rootRenderer == null)
+                {
+                    rootRenderer = gameObject.AddComponent<SpriteRenderer>();
+                }
             }
-            rootRenderer.enabled = false;
+            if (rootRenderer != null)
+            {
+                rootRenderer.enabled = false;
+            }
 
             if (tileCollider == null)
             {
                 tileCollider = GetComponent<BoxCollider2D>();
+                if (tileCollider == null)
+                {
+                    tileCollider = gameObject.AddComponent<BoxCollider2D>();
+                }
             }
 
+            roadTransform = transform.Find("Road");
+            if (roadTransform == null)
+            {
+                var roadObj = new GameObject("Road");
+                roadObj.transform.SetParent(transform, false);
+                roadTransform = roadObj.transform;
+            }
+            roadRenderer = roadTransform.GetComponent<SpriteRenderer>();
             if (roadRenderer == null)
             {
-                roadRenderer = EnsureChildRenderer("Road", 0, out roadTransform);
+                roadRenderer = roadTransform.gameObject.AddComponent<SpriteRenderer>();
+            }
+            if (roadRenderer != null)
+            {
+                roadRenderer.sortingOrder = 0;
             }
 
+            glowTransform = transform.Find("Glow");
+            if (glowTransform == null)
+            {
+                var glowObj = new GameObject("Glow");
+                glowObj.transform.SetParent(transform, false);
+                glowTransform = glowObj.transform;
+            }
+            glowRenderer = glowTransform.GetComponent<SpriteRenderer>();
             if (glowRenderer == null)
             {
-                glowRenderer = EnsureChildRenderer("Glow", 1, out glowTransform);
+                glowRenderer = glowTransform.gameObject.AddComponent<SpriteRenderer>();
+            }
+            if (glowRenderer != null)
+            {
+                glowRenderer.sortingOrder = 1;
             }
 
+            carTransform = transform.Find("Car");
+            if (carTransform == null)
+            {
+                var carObj = new GameObject("Car");
+                carObj.transform.SetParent(transform, false);
+                carTransform = carObj.transform;
+            }
+            carRenderer = carTransform.GetComponent<SpriteRenderer>();
             if (carRenderer == null)
             {
-                carRenderer = EnsureChildRenderer("Car", 2, out carTransform);
+                carRenderer = carTransform.gameObject.AddComponent<SpriteRenderer>();
             }
-
+            if (carRenderer != null)
+            {
+                carRenderer.sortingOrder = 2;
+            }
         }
 
-        private SpriteRenderer EnsureChildRenderer(string layerName, int sortingOrder, out Transform layerTransform)
+        private static bool TryGetPressedScreenPosition(out Vector2 position)
         {
-            layerTransform = transform.Find(layerName);
-            if (layerTransform == null)
+            position = Vector2.zero;
+            var touch = Touchscreen.current;
+            if (touch != null && touch.primaryTouch.press.wasPressedThisFrame)
             {
-                var layer = new GameObject(layerName);
-                layer.transform.SetParent(transform, false);
-                layerTransform = layer.transform;
+                position = touch.primaryTouch.position.ReadValue();
+                return true;
             }
 
-            layerTransform.localPosition = Vector3.zero;
-            var renderer = layerTransform.GetComponent<SpriteRenderer>();
-            if (renderer == null)
-            {
-                renderer = layerTransform.gameObject.AddComponent<SpriteRenderer>();
-            }
-
-            renderer.sortingOrder = sortingOrder;
-            return renderer;
-        }
-
-        private static bool TryGetPressedScreenPosition(out Vector2 screenPosition)
-        {
             var mouse = Mouse.current;
             if (mouse != null && mouse.leftButton.wasPressedThisFrame)
             {
-                screenPosition = mouse.position.ReadValue();
+                position = mouse.position.ReadValue();
                 return true;
             }
 
-            var touchscreen = Touchscreen.current;
-            if (touchscreen != null && touchscreen.primaryTouch.press.wasPressedThisFrame)
-            {
-                screenPosition = touchscreen.primaryTouch.position.ReadValue();
-                return true;
-            }
-
-            screenPosition = default;
             return false;
+        }
+
+        private static Vector2 VectorFor(ArrowDirection direction)
+        {
+            switch (direction)
+            {
+                case ArrowDirection.Up: return Vector2.up;
+                case ArrowDirection.Right: return Vector2.right;
+                case ArrowDirection.Down: return Vector2.down;
+                case ArrowDirection.Left: return Vector2.left;
+                default: throw new ArgumentOutOfRangeException(nameof(direction), direction, null);
+            }
         }
 
         private static float RotationFor(ArrowDirection direction)
@@ -448,63 +560,59 @@ namespace ArrowMaze.Gameplay
             }
         }
 
-        private static Vector2 VectorFor(ArrowDirection direction)
+        private float CalculateOffscreenTravelDistance(Vector2 exitDirectionVector)
         {
-            switch (direction)
+            var gameplayCamera = Camera.main;
+            if (gameplayCamera == null)
             {
-                case ArrowDirection.Up: return Vector2.up;
-                case ArrowDirection.Right: return Vector2.right;
-                case ArrowDirection.Down: return Vector2.down;
-                case ArrowDirection.Left: return Vector2.left;
-                default: return Vector2.zero;
+                return Mathf.Max(6f, cellSize * 5f);
             }
+
+            var halfHeight = gameplayCamera.orthographicSize;
+            var halfWidth = halfHeight * gameplayCamera.aspect;
+            var cameraCenter = gameplayCamera.transform.position;
+            var startWorldPos = transform.position;
+
+            var extraClearance = cellSize * 1.5f;
+
+            if (exitDirectionVector.x > 0.5f)
+            {
+                var cameraRight = cameraCenter.x + halfWidth;
+                return Mathf.Max(1.5f, (cameraRight - startWorldPos.x) + extraClearance);
+            }
+            if (exitDirectionVector.x < -0.5f)
+            {
+                var cameraLeft = cameraCenter.x - halfWidth;
+                return Mathf.Max(1.5f, (startWorldPos.x - cameraLeft) + extraClearance);
+            }
+            if (exitDirectionVector.y > 0.5f)
+            {
+                var cameraTop = cameraCenter.y + halfHeight;
+                return Mathf.Max(1.5f, (cameraTop - startWorldPos.y) + extraClearance);
+            }
+            if (exitDirectionVector.y < -0.5f)
+            {
+                var cameraBottom = cameraCenter.y - halfHeight;
+                return Mathf.Max(1.5f, (startWorldPos.y - cameraBottom) + extraClearance);
+            }
+
+            return Mathf.Max(6f, cellSize * 5f);
         }
 
         private static float ScaleSpriteToWorldSize(Sprite sprite, float targetWorldSize)
         {
             if (sprite == null)
             {
-                return targetWorldSize;
+                return 1f;
             }
 
-            var sourceWorldSize = Mathf.Max(sprite.rect.width, sprite.rect.height) / sprite.pixelsPerUnit;
-            return sourceWorldSize > 0.0001f ? targetWorldSize / sourceWorldSize : targetWorldSize;
-        }
-
-        private float CalculateOffscreenTravelDistance(Vector2 direction)
-        {
-            var gameplayCamera = Camera.main;
-            if (gameplayCamera == null || carRenderer == null)
+            var size = Mathf.Max(sprite.rect.width, sprite.rect.height) / sprite.pixelsPerUnit;
+            if (size <= 0.0001f)
             {
-                return cellSize * 2f;
+                return 1f;
             }
 
-            var planeDistance = Mathf.Abs(carTransform.position.z - gameplayCamera.transform.position.z);
-            var viewportCenter = new Vector3(0.5f, 0.5f, planeDistance);
-            var current = carTransform.position;
-            var extents = carRenderer.bounds.extents;
-            const float viewportPadding = 0.04f;
-
-            if (direction.x > 0f)
-            {
-                var edge = gameplayCamera.ViewportToWorldPoint(viewportCenter + new Vector3(0.5f + viewportPadding, 0f, 0f)).x;
-                return Mathf.Max(cellSize, edge - current.x + extents.x);
-            }
-
-            if (direction.x < 0f)
-            {
-                var edge = gameplayCamera.ViewportToWorldPoint(viewportCenter - new Vector3(0.5f + viewportPadding, 0f, 0f)).x;
-                return Mathf.Max(cellSize, current.x - edge + extents.x);
-            }
-
-            if (direction.y > 0f)
-            {
-                var edge = gameplayCamera.ViewportToWorldPoint(viewportCenter + new Vector3(0f, 0.5f + viewportPadding, 0f)).y;
-                return Mathf.Max(cellSize, edge - current.y + extents.y);
-            }
-
-            var bottom = gameplayCamera.ViewportToWorldPoint(viewportCenter - new Vector3(0f, 0.5f + viewportPadding, 0f)).y;
-            return Mathf.Max(cellSize, current.y - bottom + extents.y);
+            return targetWorldSize / size;
         }
     }
 }

@@ -4,8 +4,10 @@ using System.Collections.Generic;
 namespace ArrowMaze.Core
 {
     /// <summary>
-    /// Pure rule implementation for the board. A tile travels straight in its
-    /// own direction; active tiles block it and cleared cells are empty space.
+    /// Evaluates legality of car taps against the board state.
+    /// Each car follows a predetermined route through the road network from its starting
+    /// cell to a perimeter exit. A tap is legal if all subsequent cells along its route
+    /// are currently unobstructed (cleared of other cars) and exit through an active gate.
     /// </summary>
     public static class StraightLineLegality
     {
@@ -26,25 +28,31 @@ namespace ArrowMaze.Core
                 return false;
             }
 
-            var direction = level.GetDirection(coordinate);
-            var current = coordinate;
-            while (true)
+            var route = level.GetRoute(coordinate);
+            if (route == null || route.Count == 0)
             {
-                current = Move(current, direction);
-                if (!level.IsInBounds(current))
+                return false;
+            }
+
+            // Check each subsequent cell along the car's predetermined route
+            for (var i = 1; i < route.Count; i++)
+            {
+                var step = route[i];
+                if (!level.IsInBounds(step))
                 {
-                    // The same topology used for rendering owns legal exits. A car
-                    // cannot leave through a border where no physical gate exists.
-                    return level.GetRoadTopology().HasExitGate(
-                        Move(current, Opposite(direction)),
-                        direction);
+                    return false;
                 }
 
-                if (!cleared[current.Row, current.Column])
+                if (!cleared[step.Row, step.Column])
                 {
                     return false;
                 }
             }
+
+            // Verify that the final cell in the route exits through an active road gate
+            var lastCell = route[route.Count - 1];
+            var exitDirection = level.GetExitDirection(coordinate);
+            return level.GetRoadTopology().HasExitGate(lastCell, exitDirection);
         }
 
         public static IReadOnlyList<GridCoordinate> GetLegalTaps(MazeLevel level, bool[,] cleared)
@@ -82,7 +90,16 @@ namespace ArrowMaze.Core
             }
         }
 
-        private static ArrowDirection Opposite(ArrowDirection direction)
+        public static ArrowDirection GetStepDirection(GridCoordinate from, GridCoordinate to)
+        {
+            if (to.Row == from.Row - 1 && to.Column == from.Column) return ArrowDirection.Up;
+            if (to.Row == from.Row && to.Column == from.Column + 1) return ArrowDirection.Right;
+            if (to.Row == from.Row + 1 && to.Column == from.Column) return ArrowDirection.Down;
+            if (to.Row == from.Row && to.Column == from.Column - 1) return ArrowDirection.Left;
+            throw new ArgumentException($"Coordinates {from} and {to} are not adjacent.");
+        }
+
+        public static ArrowDirection Opposite(ArrowDirection direction)
         {
             switch (direction)
             {

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using ArrowMaze.Core;
 
 namespace ArrowMaze.Data
@@ -27,24 +28,26 @@ namespace ArrowMaze.Data
 
         public MazeLevel BuildLevel()
         {
-            var authored = LevelCatalog.GetAuthoredDirections(Id);
-            if (authored != null)
+            var authoredRoutes = LevelCatalog.GetAuthoredRoutes(Id, out var exitDirections);
+            if (authoredRoutes != null)
             {
-                // Authored layouts start as clean ring/spoke designs; the interlink
-                // pass rotates cars into genuine crossings while preserving a proven
-                // solution, keeping the teaching intent but producing a real maze.
-                var baseLevel = MazeLevel.FromDirections(authored, LevelCatalog.FilledCars(authored));
-                var solved = ChainPuzzleSolver.TrySolve(baseLevel);
-                return MazeGenerator.RaiseInterlinking(
-                    baseLevel,
-                    solved.ClearOrder,
-                    Id * 48271 + 11,
-                    minimumSharedFraction: 0.55f,
-                    minimumCrossFraction: 0.45f);
+                return MazeLevel.FromRoutes(
+                    Rows,
+                    Columns,
+                    authoredRoutes,
+                    exitDirections,
+                    seed: Seed);
             }
 
             return MazeGenerator.Generate(new MazeGenerationSettings(
-                Rows, Columns, Seed, TrapDensity, BranchingFactor, carDensity: CarDensity));
+                Rows,
+                Columns,
+                Seed,
+                TrapDensity,
+                BranchingFactor,
+                carDensity: CarDensity,
+                minimumInterlinkFraction: 0.20f,
+                minimumJunctionCount: 1));
         }
     }
 
@@ -59,12 +62,12 @@ namespace ArrowMaze.Data
             new LevelDefinition(2, "Tutorial", "Two cars, two easy exits.", LevelKind.Tutorial, 1, 2, 102, 0f, 2, 1f),
             new LevelDefinition(3, "Tutorial", "Clear the open lane first.", LevelKind.Tutorial, 1, 3, 103, 0f, 1, 1f),
             new LevelDefinition(4, "Easy", "Find the exits around the board.", LevelKind.Authored, 2, 2, 104, 0f, 2, 1f),
-            new LevelDefinition(5, "Easy", "Lanes now cross - mind the traffic.", LevelKind.Authored, 3, 3, 105, .08f, 2, .5f),
-            new LevelDefinition(6, "Easy", "Crossing paths block each other.", LevelKind.Authored, 3, 4, 106, .12f, 2, .5f),
-            new LevelDefinition(7, "Easy", "Read crossings before you tap.", LevelKind.Authored, 4, 4, 107, .14f, 2, .48f),
-            new LevelDefinition(8, "Easy", "Intersections decide the order.", LevelKind.Authored, 4, 5, 108, .16f, 2, .46f),
-            new LevelDefinition(9, "Easy", "Busy crossroads ahead.", LevelKind.Authored, 5, 5, 109, .18f, 2, .48f),
-            new LevelDefinition(10, "Challenge", "The busiest junction yet.", LevelKind.Challenge, 5, 6, 110, .20f, 2, .48f),
+            new LevelDefinition(5, "Easy", "Lanes now cross - mind the traffic.", LevelKind.Authored, 3, 3, 105, .08f, 2, .75f),
+            new LevelDefinition(6, "Easy", "Crossing paths block each other.", LevelKind.Authored, 3, 4, 106, .12f, 2, .75f),
+            new LevelDefinition(7, "Easy", "Read crossings before you tap.", LevelKind.Authored, 4, 4, 107, .14f, 2, .55f),
+            new LevelDefinition(8, "Easy", "Intersections decide the order.", LevelKind.Authored, 4, 5, 108, .16f, 2, .50f),
+            new LevelDefinition(9, "Easy", "Busy crossroads ahead.", LevelKind.Authored, 5, 5, 109, .18f, 2, .50f),
+            new LevelDefinition(10, "Challenge", "The busiest junction yet.", LevelKind.Challenge, 5, 6, 110, .20f, 2, .50f),
             new LevelDefinition(11, "Normal", "", LevelKind.Procedural, 6, 7, 111, .18f, 2, .45f),
             new LevelDefinition(12, "Normal", "", LevelKind.Procedural, 6, 7, 112, .20f, 2, .45f),
             new LevelDefinition(13, "Normal", "", LevelKind.Procedural, 6, 8, 113, .20f, 2, .45f),
@@ -86,50 +89,283 @@ namespace ArrowMaze.Data
             return Definitions[levelId - 1];
         }
 
-        internal static ArrowDirection[,] GetAuthoredDirections(int levelId)
+        internal static Dictionary<GridCoordinate, IReadOnlyList<GridCoordinate>> GetAuthoredRoutes(
+            int levelId,
+            out Dictionary<GridCoordinate, ArrowDirection> exitDirections)
         {
+            exitDirections = new Dictionary<GridCoordinate, ArrowDirection>();
+            var routes = new Dictionary<GridCoordinate, IReadOnlyList<GridCoordinate>>();
+
             switch (levelId)
             {
-                case 1: return new[,] { { ArrowDirection.Left } };
-                case 2: return new[,] { { ArrowDirection.Left, ArrowDirection.Right } };
-                case 3: return new[,] { { ArrowDirection.Right, ArrowDirection.Right, ArrowDirection.Right } };
-                case 4: return new[,] { { ArrowDirection.Up, ArrowDirection.Right }, { ArrowDirection.Down, ArrowDirection.Left } };
-                case 5: return new[,] {
-                    { ArrowDirection.Up, ArrowDirection.Up, ArrowDirection.Up },
-                    { ArrowDirection.Left, ArrowDirection.Up, ArrowDirection.Right },
-                    { ArrowDirection.Down, ArrowDirection.Down, ArrowDirection.Down } };
-                case 6: return new[,] {
-                    { ArrowDirection.Up, ArrowDirection.Up, ArrowDirection.Up, ArrowDirection.Up },
-                    { ArrowDirection.Left, ArrowDirection.Up, ArrowDirection.Up, ArrowDirection.Right },
-                    { ArrowDirection.Down, ArrowDirection.Down, ArrowDirection.Down, ArrowDirection.Down } };
-                case 7: return new[,] {
-                    { ArrowDirection.Up, ArrowDirection.Up, ArrowDirection.Up, ArrowDirection.Up },
-                    { ArrowDirection.Left, ArrowDirection.Up, ArrowDirection.Up, ArrowDirection.Right },
-                    { ArrowDirection.Left, ArrowDirection.Down, ArrowDirection.Down, ArrowDirection.Right },
-                    { ArrowDirection.Down, ArrowDirection.Down, ArrowDirection.Down, ArrowDirection.Down } };
-                case 8: return new[,] {
-                    { ArrowDirection.Up, ArrowDirection.Up, ArrowDirection.Up, ArrowDirection.Up, ArrowDirection.Up },
-                    { ArrowDirection.Left, ArrowDirection.Up, ArrowDirection.Up, ArrowDirection.Up, ArrowDirection.Right },
-                    { ArrowDirection.Left, ArrowDirection.Down, ArrowDirection.Down, ArrowDirection.Down, ArrowDirection.Right },
-                    { ArrowDirection.Down, ArrowDirection.Down, ArrowDirection.Down, ArrowDirection.Down, ArrowDirection.Down } };
-                case 9: return new[,] {
-                    { ArrowDirection.Up, ArrowDirection.Up, ArrowDirection.Up, ArrowDirection.Up, ArrowDirection.Up },
-                    { ArrowDirection.Left, ArrowDirection.Up, ArrowDirection.Up, ArrowDirection.Up, ArrowDirection.Right },
-                    { ArrowDirection.Left, ArrowDirection.Left, ArrowDirection.Up, ArrowDirection.Right, ArrowDirection.Right },
-                    { ArrowDirection.Left, ArrowDirection.Down, ArrowDirection.Down, ArrowDirection.Down, ArrowDirection.Right },
-                    { ArrowDirection.Down, ArrowDirection.Down, ArrowDirection.Down, ArrowDirection.Down, ArrowDirection.Down } };
-                case 10: return new[,] {
-                    { ArrowDirection.Up, ArrowDirection.Up, ArrowDirection.Up, ArrowDirection.Up, ArrowDirection.Up, ArrowDirection.Up },
-                    { ArrowDirection.Left, ArrowDirection.Up, ArrowDirection.Up, ArrowDirection.Up, ArrowDirection.Up, ArrowDirection.Right },
-                    { ArrowDirection.Left, ArrowDirection.Left, ArrowDirection.Up, ArrowDirection.Up, ArrowDirection.Right, ArrowDirection.Right },
-                    { ArrowDirection.Left, ArrowDirection.Down, ArrowDirection.Down, ArrowDirection.Down, ArrowDirection.Down, ArrowDirection.Right },
-                    { ArrowDirection.Down, ArrowDirection.Down, ArrowDirection.Down, ArrowDirection.Down, ArrowDirection.Down, ArrowDirection.Down } };
-                default: return null;
+                case 1:
+                    routes[new GridCoordinate(0, 0)] = new[] { new GridCoordinate(0, 0) };
+                    exitDirections[new GridCoordinate(0, 0)] = ArrowDirection.Left;
+                    return routes;
+
+                case 2:
+                    routes[new GridCoordinate(0, 0)] = new[] { new GridCoordinate(0, 0) };
+                    exitDirections[new GridCoordinate(0, 0)] = ArrowDirection.Left;
+                    routes[new GridCoordinate(0, 1)] = new[] { new GridCoordinate(0, 1) };
+                    exitDirections[new GridCoordinate(0, 1)] = ArrowDirection.Right;
+                    return routes;
+
+                case 3:
+                    routes[new GridCoordinate(0, 0)] = new[] { new GridCoordinate(0, 0), new GridCoordinate(0, 1), new GridCoordinate(0, 2) };
+                    exitDirections[new GridCoordinate(0, 0)] = ArrowDirection.Right;
+                    routes[new GridCoordinate(0, 1)] = new[] { new GridCoordinate(0, 1), new GridCoordinate(0, 2) };
+                    exitDirections[new GridCoordinate(0, 1)] = ArrowDirection.Right;
+                    routes[new GridCoordinate(0, 2)] = new[] { new GridCoordinate(0, 2) };
+                    exitDirections[new GridCoordinate(0, 2)] = ArrowDirection.Right;
+                    return routes;
+
+                case 4:
+                    // 2x2 with bent routes sharing exit corridors
+                    routes[new GridCoordinate(0, 0)] = new[] { new GridCoordinate(0, 0) };
+                    exitDirections[new GridCoordinate(0, 0)] = ArrowDirection.Up;
+
+                    routes[new GridCoordinate(0, 1)] = new[] { new GridCoordinate(0, 1), new GridCoordinate(0, 0) };
+                    exitDirections[new GridCoordinate(0, 1)] = ArrowDirection.Up;
+
+                    routes[new GridCoordinate(1, 0)] = new[] { new GridCoordinate(1, 0), new GridCoordinate(0, 0) };
+                    exitDirections[new GridCoordinate(1, 0)] = ArrowDirection.Up;
+
+                    routes[new GridCoordinate(1, 1)] = new[] { new GridCoordinate(1, 1), new GridCoordinate(1, 0), new GridCoordinate(0, 0) };
+                    exitDirections[new GridCoordinate(1, 1)] = ArrowDirection.Up;
+                    return routes;
+
+                case 5:
+                    // 3x3 with shared crossing corridors and turns
+                    routes[new GridCoordinate(0, 2)] = new[] { new GridCoordinate(0, 2) };
+                    exitDirections[new GridCoordinate(0, 2)] = ArrowDirection.Up;
+
+                    routes[new GridCoordinate(2, 0)] = new[] { new GridCoordinate(2, 0) };
+                    exitDirections[new GridCoordinate(2, 0)] = ArrowDirection.Left;
+
+                    routes[new GridCoordinate(0, 1)] = new[] { new GridCoordinate(0, 1), new GridCoordinate(0, 2) };
+                    exitDirections[new GridCoordinate(0, 1)] = ArrowDirection.Up;
+
+                    routes[new GridCoordinate(0, 0)] = new[] { new GridCoordinate(0, 0), new GridCoordinate(0, 1), new GridCoordinate(0, 2) };
+                    exitDirections[new GridCoordinate(0, 0)] = ArrowDirection.Up;
+
+                    routes[new GridCoordinate(1, 1)] = new[] { new GridCoordinate(1, 1), new GridCoordinate(0, 1), new GridCoordinate(0, 2) };
+                    exitDirections[new GridCoordinate(1, 1)] = ArrowDirection.Up;
+
+                    routes[new GridCoordinate(1, 2)] = new[] { new GridCoordinate(1, 2), new GridCoordinate(0, 2) };
+                    exitDirections[new GridCoordinate(1, 2)] = ArrowDirection.Up;
+
+                    routes[new GridCoordinate(2, 1)] = new[] { new GridCoordinate(2, 1), new GridCoordinate(2, 0) };
+                    exitDirections[new GridCoordinate(2, 1)] = ArrowDirection.Left;
+
+                    routes[new GridCoordinate(2, 2)] = new[] { new GridCoordinate(2, 2), new GridCoordinate(2, 1), new GridCoordinate(2, 0) };
+                    exitDirections[new GridCoordinate(2, 2)] = ArrowDirection.Left;
+
+                    routes[new GridCoordinate(1, 0)] = new[] { new GridCoordinate(1, 0), new GridCoordinate(2, 0) };
+                    exitDirections[new GridCoordinate(1, 0)] = ArrowDirection.Left;
+                    return routes;
+
+                case 6:
+                    // 3x4 with bent routes, shared corridors, and T-junctions
+                    routes[new GridCoordinate(0, 3)] = new[] { new GridCoordinate(0, 3) };
+                    exitDirections[new GridCoordinate(0, 3)] = ArrowDirection.Up;
+
+                    routes[new GridCoordinate(2, 0)] = new[] { new GridCoordinate(2, 0) };
+                    exitDirections[new GridCoordinate(2, 0)] = ArrowDirection.Left;
+
+                    routes[new GridCoordinate(0, 2)] = new[] { new GridCoordinate(0, 2), new GridCoordinate(0, 3) };
+                    exitDirections[new GridCoordinate(0, 2)] = ArrowDirection.Up;
+
+                    routes[new GridCoordinate(0, 1)] = new[] { new GridCoordinate(0, 1), new GridCoordinate(0, 2), new GridCoordinate(0, 3) };
+                    exitDirections[new GridCoordinate(0, 1)] = ArrowDirection.Up;
+
+                    routes[new GridCoordinate(0, 0)] = new[] { new GridCoordinate(0, 0), new GridCoordinate(0, 1), new GridCoordinate(0, 2), new GridCoordinate(0, 3) };
+                    exitDirections[new GridCoordinate(0, 0)] = ArrowDirection.Up;
+
+                    routes[new GridCoordinate(1, 2)] = new[] { new GridCoordinate(1, 2), new GridCoordinate(0, 2), new GridCoordinate(0, 3) };
+                    exitDirections[new GridCoordinate(1, 2)] = ArrowDirection.Up;
+
+                    routes[new GridCoordinate(1, 3)] = new[] { new GridCoordinate(1, 3), new GridCoordinate(0, 3) };
+                    exitDirections[new GridCoordinate(1, 3)] = ArrowDirection.Up;
+
+                    routes[new GridCoordinate(2, 1)] = new[] { new GridCoordinate(2, 1), new GridCoordinate(2, 0) };
+                    exitDirections[new GridCoordinate(2, 1)] = ArrowDirection.Left;
+
+                    routes[new GridCoordinate(2, 2)] = new[] { new GridCoordinate(2, 2), new GridCoordinate(2, 1), new GridCoordinate(2, 0) };
+                    exitDirections[new GridCoordinate(2, 2)] = ArrowDirection.Left;
+
+                    routes[new GridCoordinate(2, 3)] = new[] { new GridCoordinate(2, 3), new GridCoordinate(2, 2), new GridCoordinate(2, 1), new GridCoordinate(2, 0) };
+                    exitDirections[new GridCoordinate(2, 3)] = ArrowDirection.Left;
+
+                    routes[new GridCoordinate(1, 1)] = new[] { new GridCoordinate(1, 1), new GridCoordinate(2, 1), new GridCoordinate(2, 0) };
+                    exitDirections[new GridCoordinate(1, 1)] = ArrowDirection.Left;
+
+                    routes[new GridCoordinate(1, 0)] = new[] { new GridCoordinate(1, 0), new GridCoordinate(2, 0) };
+                    exitDirections[new GridCoordinate(1, 0)] = ArrowDirection.Left;
+                    return routes;
+
+                case 7:
+                    // 4x4 with bent routes, crossroads and arterial avenues
+                    routes[new GridCoordinate(0, 3)] = new[] { new GridCoordinate(0, 3) };
+                    exitDirections[new GridCoordinate(0, 3)] = ArrowDirection.Up;
+
+                    routes[new GridCoordinate(3, 0)] = new[] { new GridCoordinate(3, 0) };
+                    exitDirections[new GridCoordinate(3, 0)] = ArrowDirection.Left;
+
+                    routes[new GridCoordinate(0, 2)] = new[] { new GridCoordinate(0, 2), new GridCoordinate(0, 3) };
+                    exitDirections[new GridCoordinate(0, 2)] = ArrowDirection.Up;
+
+                    routes[new GridCoordinate(0, 1)] = new[] { new GridCoordinate(0, 1), new GridCoordinate(0, 2), new GridCoordinate(0, 3) };
+                    exitDirections[new GridCoordinate(0, 1)] = ArrowDirection.Up;
+
+                    routes[new GridCoordinate(1, 1)] = new[] { new GridCoordinate(1, 1), new GridCoordinate(0, 1), new GridCoordinate(0, 2), new GridCoordinate(0, 3) };
+                    exitDirections[new GridCoordinate(1, 1)] = ArrowDirection.Up;
+
+                    routes[new GridCoordinate(3, 1)] = new[] { new GridCoordinate(3, 1), new GridCoordinate(3, 0) };
+                    exitDirections[new GridCoordinate(3, 1)] = ArrowDirection.Left;
+
+                    routes[new GridCoordinate(3, 2)] = new[] { new GridCoordinate(3, 2), new GridCoordinate(3, 1), new GridCoordinate(3, 0) };
+                    exitDirections[new GridCoordinate(3, 2)] = ArrowDirection.Left;
+
+                    routes[new GridCoordinate(2, 1)] = new[] { new GridCoordinate(2, 1), new GridCoordinate(3, 1), new GridCoordinate(3, 0) };
+                    exitDirections[new GridCoordinate(2, 1)] = ArrowDirection.Left;
+
+                    routes[new GridCoordinate(2, 2)] = new[] { new GridCoordinate(2, 2), new GridCoordinate(2, 1), new GridCoordinate(3, 1), new GridCoordinate(3, 0) };
+                    exitDirections[new GridCoordinate(2, 2)] = ArrowDirection.Left;
+                    return routes;
+
+                case 8:
+                    // 4x5 with bent routes and shared arterial corridors
+                    routes[new GridCoordinate(0, 4)] = new[] { new GridCoordinate(0, 4) };
+                    exitDirections[new GridCoordinate(0, 4)] = ArrowDirection.Right;
+
+                    routes[new GridCoordinate(0, 3)] = new[] { new GridCoordinate(0, 3), new GridCoordinate(0, 4) };
+                    exitDirections[new GridCoordinate(0, 3)] = ArrowDirection.Right;
+
+                    routes[new GridCoordinate(0, 2)] = new[] { new GridCoordinate(0, 2), new GridCoordinate(0, 3), new GridCoordinate(0, 4) };
+                    exitDirections[new GridCoordinate(0, 2)] = ArrowDirection.Right;
+
+                    routes[new GridCoordinate(0, 1)] = new[] { new GridCoordinate(0, 1), new GridCoordinate(0, 2), new GridCoordinate(0, 3), new GridCoordinate(0, 4) };
+                    exitDirections[new GridCoordinate(0, 1)] = ArrowDirection.Right;
+
+                    routes[new GridCoordinate(1, 2)] = new[] { new GridCoordinate(1, 2), new GridCoordinate(0, 2), new GridCoordinate(0, 3), new GridCoordinate(0, 4) };
+                    exitDirections[new GridCoordinate(1, 2)] = ArrowDirection.Right;
+
+                    routes[new GridCoordinate(3, 0)] = new[] { new GridCoordinate(3, 0) };
+                    exitDirections[new GridCoordinate(3, 0)] = ArrowDirection.Left;
+
+                    routes[new GridCoordinate(3, 1)] = new[] { new GridCoordinate(3, 1), new GridCoordinate(3, 0) };
+                    exitDirections[new GridCoordinate(3, 1)] = ArrowDirection.Left;
+
+                    routes[new GridCoordinate(3, 2)] = new[] { new GridCoordinate(3, 2), new GridCoordinate(3, 1), new GridCoordinate(3, 0) };
+                    exitDirections[new GridCoordinate(3, 2)] = ArrowDirection.Left;
+
+                    routes[new GridCoordinate(3, 3)] = new[] { new GridCoordinate(3, 3), new GridCoordinate(3, 2), new GridCoordinate(3, 1), new GridCoordinate(3, 0) };
+                    exitDirections[new GridCoordinate(3, 3)] = ArrowDirection.Left;
+
+                    routes[new GridCoordinate(2, 2)] = new[] { new GridCoordinate(2, 2), new GridCoordinate(3, 2), new GridCoordinate(3, 1), new GridCoordinate(3, 0) };
+                    exitDirections[new GridCoordinate(2, 2)] = ArrowDirection.Left;
+                    return routes;
+
+                case 9:
+                    // 5x5 with dense network, shared multi-cell segments, and junctions
+                    routes[new GridCoordinate(0, 4)] = new[] { new GridCoordinate(0, 4) };
+                    exitDirections[new GridCoordinate(0, 4)] = ArrowDirection.Up;
+
+                    routes[new GridCoordinate(0, 3)] = new[] { new GridCoordinate(0, 3), new GridCoordinate(0, 4) };
+                    exitDirections[new GridCoordinate(0, 3)] = ArrowDirection.Up;
+
+                    routes[new GridCoordinate(0, 2)] = new[] { new GridCoordinate(0, 2), new GridCoordinate(0, 3), new GridCoordinate(0, 4) };
+                    exitDirections[new GridCoordinate(0, 2)] = ArrowDirection.Up;
+
+                    routes[new GridCoordinate(0, 1)] = new[] { new GridCoordinate(0, 1), new GridCoordinate(0, 2), new GridCoordinate(0, 3), new GridCoordinate(0, 4) };
+                    exitDirections[new GridCoordinate(0, 1)] = ArrowDirection.Up;
+
+                    routes[new GridCoordinate(1, 2)] = new[] { new GridCoordinate(1, 2), new GridCoordinate(0, 2), new GridCoordinate(0, 3), new GridCoordinate(0, 4) };
+                    exitDirections[new GridCoordinate(1, 2)] = ArrowDirection.Up;
+
+                    routes[new GridCoordinate(2, 2)] = new[] { new GridCoordinate(2, 2), new GridCoordinate(1, 2), new GridCoordinate(0, 2), new GridCoordinate(0, 3), new GridCoordinate(0, 4) };
+                    exitDirections[new GridCoordinate(2, 2)] = ArrowDirection.Up;
+
+                    routes[new GridCoordinate(4, 0)] = new[] { new GridCoordinate(4, 0) };
+                    exitDirections[new GridCoordinate(4, 0)] = ArrowDirection.Left;
+
+                    routes[new GridCoordinate(4, 1)] = new[] { new GridCoordinate(4, 1), new GridCoordinate(4, 0) };
+                    exitDirections[new GridCoordinate(4, 1)] = ArrowDirection.Left;
+
+                    routes[new GridCoordinate(4, 2)] = new[] { new GridCoordinate(4, 2), new GridCoordinate(4, 1), new GridCoordinate(4, 0) };
+                    exitDirections[new GridCoordinate(4, 2)] = ArrowDirection.Left;
+
+                    routes[new GridCoordinate(4, 3)] = new[] { new GridCoordinate(4, 3), new GridCoordinate(4, 2), new GridCoordinate(4, 1), new GridCoordinate(4, 0) };
+                    exitDirections[new GridCoordinate(4, 3)] = ArrowDirection.Left;
+
+                    routes[new GridCoordinate(3, 2)] = new[] { new GridCoordinate(3, 2), new GridCoordinate(4, 2), new GridCoordinate(4, 1), new GridCoordinate(4, 0) };
+                    exitDirections[new GridCoordinate(3, 2)] = ArrowDirection.Left;
+
+                    routes[new GridCoordinate(2, 3)] = new[] { new GridCoordinate(2, 3), new GridCoordinate(3, 3), new GridCoordinate(4, 3), new GridCoordinate(4, 2), new GridCoordinate(4, 1), new GridCoordinate(4, 0) };
+                    exitDirections[new GridCoordinate(2, 3)] = ArrowDirection.Left;
+                    return routes;
+
+                case 10:
+                    // 5x6 Challenge with dense interconnected multi-segment corridors
+                    routes[new GridCoordinate(0, 5)] = new[] { new GridCoordinate(0, 5) };
+                    exitDirections[new GridCoordinate(0, 5)] = ArrowDirection.Right;
+
+                    routes[new GridCoordinate(0, 4)] = new[] { new GridCoordinate(0, 4), new GridCoordinate(0, 5) };
+                    exitDirections[new GridCoordinate(0, 4)] = ArrowDirection.Right;
+
+                    routes[new GridCoordinate(0, 3)] = new[] { new GridCoordinate(0, 3), new GridCoordinate(0, 4), new GridCoordinate(0, 5) };
+                    exitDirections[new GridCoordinate(0, 3)] = ArrowDirection.Right;
+
+                    routes[new GridCoordinate(0, 2)] = new[] { new GridCoordinate(0, 2), new GridCoordinate(0, 3), new GridCoordinate(0, 4), new GridCoordinate(0, 5) };
+                    exitDirections[new GridCoordinate(0, 2)] = ArrowDirection.Right;
+
+                    routes[new GridCoordinate(0, 1)] = new[] { new GridCoordinate(0, 1), new GridCoordinate(0, 2), new GridCoordinate(0, 3), new GridCoordinate(0, 4), new GridCoordinate(0, 5) };
+                    exitDirections[new GridCoordinate(0, 1)] = ArrowDirection.Right;
+
+                    routes[new GridCoordinate(1, 3)] = new[] { new GridCoordinate(1, 3), new GridCoordinate(0, 3), new GridCoordinate(0, 4), new GridCoordinate(0, 5) };
+                    exitDirections[new GridCoordinate(1, 3)] = ArrowDirection.Right;
+
+                    routes[new GridCoordinate(2, 3)] = new[] { new GridCoordinate(2, 3), new GridCoordinate(1, 3), new GridCoordinate(0, 3), new GridCoordinate(0, 4), new GridCoordinate(0, 5) };
+                    exitDirections[new GridCoordinate(2, 3)] = ArrowDirection.Right;
+
+                    routes[new GridCoordinate(4, 0)] = new[] { new GridCoordinate(4, 0) };
+                    exitDirections[new GridCoordinate(4, 0)] = ArrowDirection.Left;
+
+                    routes[new GridCoordinate(4, 1)] = new[] { new GridCoordinate(4, 1), new GridCoordinate(4, 0) };
+                    exitDirections[new GridCoordinate(4, 1)] = ArrowDirection.Left;
+
+                    routes[new GridCoordinate(4, 2)] = new[] { new GridCoordinate(4, 2), new GridCoordinate(4, 1), new GridCoordinate(4, 0) };
+                    exitDirections[new GridCoordinate(4, 2)] = ArrowDirection.Left;
+
+                    routes[new GridCoordinate(4, 3)] = new[] { new GridCoordinate(4, 3), new GridCoordinate(4, 2), new GridCoordinate(4, 1), new GridCoordinate(4, 0) };
+                    exitDirections[new GridCoordinate(4, 3)] = ArrowDirection.Left;
+
+                    routes[new GridCoordinate(4, 4)] = new[] { new GridCoordinate(4, 4), new GridCoordinate(4, 3), new GridCoordinate(4, 2), new GridCoordinate(4, 1), new GridCoordinate(4, 0) };
+                    exitDirections[new GridCoordinate(4, 4)] = ArrowDirection.Left;
+
+                    routes[new GridCoordinate(3, 2)] = new[] { new GridCoordinate(3, 2), new GridCoordinate(4, 2), new GridCoordinate(4, 1), new GridCoordinate(4, 0) };
+                    exitDirections[new GridCoordinate(3, 2)] = ArrowDirection.Left;
+
+                    routes[new GridCoordinate(2, 2)] = new[] { new GridCoordinate(2, 2), new GridCoordinate(3, 2), new GridCoordinate(4, 2), new GridCoordinate(4, 1), new GridCoordinate(4, 0) };
+                    exitDirections[new GridCoordinate(2, 2)] = ArrowDirection.Left;
+
+                    routes[new GridCoordinate(3, 4)] = new[] { new GridCoordinate(3, 4), new GridCoordinate(4, 4), new GridCoordinate(4, 3), new GridCoordinate(4, 2), new GridCoordinate(4, 1), new GridCoordinate(4, 0) };
+                    exitDirections[new GridCoordinate(3, 4)] = ArrowDirection.Left;
+                    return routes;
+
+                default:
+                    return null;
             }
+        }
+
+        internal static ArrowDirection[,] GetAuthoredDirections(int levelId)
+        {
+            return null;
         }
 
         internal static bool[,] FilledCars(ArrowDirection[,] directions)
         {
+            if (directions == null) return null;
             var cars = new bool[directions.GetLength(0), directions.GetLength(1)];
             for (var row = 0; row < cars.GetLength(0); row++)
             for (var column = 0; column < cars.GetLength(1); column++) cars[row, column] = true;
